@@ -1,0 +1,5 @@
+interface:
+  display_name: "To Spec"
+  short_description: "将已澄清的对话整理为可实施的规格说明，并发布到项目问题跟踪系统"
+policy:
+  allow_implicit_invocation: false

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Chaijie"
+  short_description: "将跨模块目标拆为有依赖、单一主责、可验证且可交接的执行任务"
+  default_prompt: "Use $chaijie to turn this complex objective into a gated, reviewable, restart-safe task system."

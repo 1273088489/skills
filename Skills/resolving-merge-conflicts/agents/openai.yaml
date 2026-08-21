@@ -1,0 +1,3 @@
+interface:
+  display_name: "Resolving Merge Conflicts"
+  short_description: "按照双方改动的原始意图解决 Git 合并或变基冲突，并运行相关验证"

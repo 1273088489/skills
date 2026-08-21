@@ -1,0 +1,5 @@
+interface:
+  display_name: "Grill Me"
+  short_description: "通过高强度追问打磨计划或设计，适用于不依赖现有代码库的场景"
+policy:
+  allow_implicit_invocation: false

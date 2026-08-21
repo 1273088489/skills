@@ -1,0 +1,5 @@
+interface:
+  display_name: "Wizard"
+  short_description: "生成交互式 Bash 向导，引导人工安全完成第三方配置、迁移或状态转换"
+policy:
+  allow_implicit_invocation: false

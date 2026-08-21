@@ -1,0 +1,5 @@
+interface:
+  display_name: "Grill with Docs"
+  short_description: "在代码库中通过追问打磨设计，并同步沉淀术语、上下文和 ADR 文档"
+policy:
+  allow_implicit_invocation: false

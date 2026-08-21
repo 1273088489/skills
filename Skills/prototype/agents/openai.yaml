@@ -1,0 +1,3 @@
+interface:
+  display_name: "Prototype"
+  short_description: "用一次性可运行原型验证状态模型、交互设计或技术取舍，不作为正式交付代码"

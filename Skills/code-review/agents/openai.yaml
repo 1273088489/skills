@@ -1,0 +1,3 @@
+interface:
+  display_name: "Code Review"
+  short_description: "从代码规范与原始需求两个维度审查分支、提交或未提交的改动"

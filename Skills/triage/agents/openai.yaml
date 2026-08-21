@@ -1,0 +1,5 @@
+interface:
+  display_name: "Triage"
+  short_description: "按分类、复现、追问和简报流程分流外部 Issue 或 PR，形成可处理的问题"
+policy:
+  allow_implicit_invocation: false

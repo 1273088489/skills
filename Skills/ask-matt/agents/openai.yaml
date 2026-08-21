@@ -1,0 +1,5 @@
+interface:
+  display_name: "Ask Matt"
+  short_description: "根据当前需求推荐合适的 Skill 及从构思到交付的工作流"
+policy:
+  allow_implicit_invocation: false

@@ -1,0 +1,5 @@
+interface:
+  display_name: "To Tickets"
+  short_description: "将计划或规格拆成带阻塞关系、可独立验证并可交给 Agent 执行的任务"
+policy:
+  allow_implicit_invocation: false

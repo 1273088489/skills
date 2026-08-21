@@ -1,0 +1,5 @@
+interface:
+  display_name: "Claude Handoff"
+  short_description: "整理当前上下文并启动后台 Claude 代理，让新会话可立即续办"
+policy:
+  allow_implicit_invocation: false

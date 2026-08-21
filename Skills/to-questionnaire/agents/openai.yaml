@@ -1,0 +1,5 @@
+interface:
+  display_name: "To Questionnaire"
+  short_description: "将无法独立确认的范围、决策和事实整理为可交给他人填写的问卷"
+policy:
+  allow_implicit_invocation: false

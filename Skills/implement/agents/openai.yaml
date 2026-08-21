@@ -1,0 +1,5 @@
+interface:
+  display_name: "Implement"
+  short_description: "依据规格或任务单实现功能，结合测试、类型检查和审查完成可交付改动"
+policy:
+  allow_implicit_invocation: false

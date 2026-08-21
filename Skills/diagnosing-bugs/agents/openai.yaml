@@ -1,0 +1,3 @@
+interface:
+  display_name: "Diagnosing Bugs"
+  short_description: "通过可复现的反馈闭环定位复杂缺陷、偶发异常或性能回退的根因"

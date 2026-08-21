@@ -1,0 +1,5 @@
+interface:
+  display_name: "Setup TS Deep Modules"
+  short_description: "为 TypeScript 项目配置深模块约束，使实现通过清晰且稳定的入口对外暴露"
+policy:
+  allow_implicit_invocation: false

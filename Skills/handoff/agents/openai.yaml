@@ -1,0 +1,5 @@
+interface:
+  display_name: "Handoff"
+  short_description: "将当前对话压缩为可引用的交接文档，供新的 Agent 或会话无缝继续"
+policy:
+  allow_implicit_invocation: false

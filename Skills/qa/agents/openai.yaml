@@ -1,0 +1,3 @@
+interface:
+  display_name: "QA"
+  short_description: "通过对话补齐问题背景、探索代码库，并整理为面向用户的 GitHub Issue"

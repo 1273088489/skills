@@ -1,0 +1,3 @@
+interface:
+  display_name: "Scaffold Exercises"
+  short_description: "创建含章节、题目、答案和讲解的课程练习结构，并确保可通过检查"

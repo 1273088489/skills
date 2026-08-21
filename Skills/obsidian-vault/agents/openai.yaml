@@ -1,0 +1,3 @@
+interface:
+  display_name: "Obsidian Vault"
+  short_description: "搜索、创建和整理 Obsidian 笔记，维护双向链接、索引与知识关联"

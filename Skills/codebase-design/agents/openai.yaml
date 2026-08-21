@@ -1,0 +1,3 @@
+interface:
+  display_name: "Codebase Design"
+  short_description: "用深模块、清晰接口和边界等方法设计更易维护与测试的代码结构"

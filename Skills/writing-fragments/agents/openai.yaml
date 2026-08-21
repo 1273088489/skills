@@ -1,0 +1,5 @@
+interface:
+  display_name: "Writing Fragments"
+  short_description: "在写作探索阶段从零散材料中挖掘可复用片段，暂不承诺文章结构"
+policy:
+  allow_implicit_invocation: false

@@ -1,0 +1,5 @@
+interface:
+  display_name: "Writing Great Skills"
+  short_description: "提供编写高质量、低上下文负担且执行过程可预测的 Skill 的原则与术语"
+policy:
+  allow_implicit_invocation: false

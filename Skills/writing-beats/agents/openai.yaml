@@ -1,0 +1,5 @@
+interface:
+  display_name: "Writing Beats"
+  short_description: "将原始素材逐步组装为有节奏、有逻辑且每段承担明确作用的内容单元"
+policy:
+  allow_implicit_invocation: false

@@ -1,0 +1,5 @@
+interface:
+  display_name: "Batch Grill Me"
+  short_description: "按依赖关系分轮提出关键问题，系统澄清复杂需求与设计决策"
+policy:
+  allow_implicit_invocation: false

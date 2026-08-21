@@ -1,0 +1,5 @@
+interface:
+  display_name: "Setup Matt Pocock Skills"
+  short_description: "首次使用工程工作流前，为仓库配置 Issue 跟踪、分流标签和文档结构"
+policy:
+  allow_implicit_invocation: false

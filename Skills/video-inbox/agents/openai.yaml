@@ -1,0 +1,7 @@
+interface:
+  display_name: "视频 Inbox"
+  short_description: "Windows 原生字幕、ASR、浏览器兜底与 Obsidian 入库"
+  default_prompt: "使用 $video-inbox 在 Windows 上优先提取字幕或音频转写，必要时通过 Edge/Kimi WebBridge 兜底，并保存到 Obsidian Inbox。"
+
+policy:
+  allow_implicit_invocation: true

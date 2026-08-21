@@ -1,0 +1,5 @@
+interface:
+  display_name: "Wayfinder"
+  short_description: "为跨多会话的大型模糊项目建立决策地图，逐项消除不确定性后再进入实现"
+policy:
+  allow_implicit_invocation: false

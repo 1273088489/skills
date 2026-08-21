@@ -1,0 +1,5 @@
+interface:
+  display_name: "Edit Article"
+  short_description: "重组文章草稿的论述结构，提升表达清晰度并精炼具体文字"
+policy:
+  allow_implicit_invocation: false

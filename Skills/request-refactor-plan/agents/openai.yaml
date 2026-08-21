@@ -1,0 +1,3 @@
+interface:
+  display_name: "Request Refactor Plan"
+  short_description: "通过详细访谈制定可拆分为小提交的安全重构计划，并创建对应 Issue"

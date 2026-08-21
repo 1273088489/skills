@@ -1,0 +1,3 @@
+interface:
+  display_name: "Domain Modeling"
+  short_description: "统一领域术语、消除概念歧义并记录关键架构决策，建立清晰领域模型"

@@ -1,0 +1,5 @@
+interface:
+  display_name: "Writing Shape"
+  short_description: "将固定的原始素材组织为结构清晰的文章，并与用户逐段确定论证和表达"
+policy:
+  allow_implicit_invocation: false
