@@ -1,6 +1,6 @@
 ---
 name: team-orchestration
-description: 在需要把一个目标拆给多个子对话执行、监督子对话并唤醒失败成员、审核前汇总验证时使用。
+description: Use when a goal is split across multiple AgentTeams members and members may hang, fail, report inconsistently, or require recovery before final verification。
 ---
 
 # Team Orchestration
@@ -17,11 +17,29 @@ Captain 把一个大目标推进到“可交给用户审核的未提交改动”
 
 ## 2. 创建团队并按任务拆分子对话
 
+> **运行前提**：AgentTeams 成员是平台子代理，本流程必须由**顶层会话**担任队长；嵌套/委派子代理会话会因深度上限报 `subagent depth exceeds maxDepth`，此时应把编排提升到顶层会话执行。
+
 - 每个大纲任务对应一个独立子对话/成员，不要给同一个成员堆多个大任务。
 - 按文件所有权拆分，避免并行子对话改同一文件；必要时取消原任务并新建任务改派。
 - 成员角色可从角色目录读取，例如 agency-agents；没有可用角色时按职责命名，不虚构。
 
 **完成标准**：任务集合能并行、路径不重叠、每项都有验收或验证方式。
+
+## 2a. 按难度给成员指定思考等级
+
+创建成员（`agent_teams_add_member`）时，按任务难度为成员指定 `reasoning_effort`，做到不浪费额度也不将就质量（与 `subagent-effort-grading` 同一套分级准则）：
+
+| 难度 | 等级 | 适用 |
+|---|---|---|
+| 机械 / 检索 / 单步 | `low` | 读文件、查日志、单一明确指令、简单改动 |
+| 推理 / 多步 / 审查 | `high` | 代码审查、跨文件改动、调试验证、需要判断权衡 |
+| 硬骨头 / 高风险 | `max` | 跨模块重构、复杂 bug、安全/逆向分析、长链推理 |
+
+判断看四条：**步数与编排复杂度、歧义与权衡、出错代价、推理链长度**。
+
+- **不传的默认行为**：同路由（provider/model 与队长一致）时继承队长当前等级；换了路由则用目标模型的默认等级。
+- **显式传值优先**：传了 `reasoning_effort` 就以显式值为准。
+- 不确定时宁高半档（质量优先）；明显机械的活不要浪费。
 
 ## 3. 用 task packet 派发
 
@@ -37,13 +55,26 @@ Captain 把一个大目标推进到“可交给用户审核的未提交改动”
 
 ## 4. 进入 watch loop：监督、唤醒、验证
 
-- 认领任务并标记 in_progress，发 task packet 唤醒成员。
+- 认领任务并标记 in_progress，发 task packet 唤醒成员。平台状态机为 pending → claimed → in_progress → completed|failed|cancelled：pending 不能直接置 in_progress，必须先 claim（队长可代表 assignee 认领）。
 - 定期检查成员 activity、任务 output、git status；任何“运行中但长时间无产出”都是待唤醒信号，不必等失败通知。
-- 唤醒：中断疑似卡住的回合，重新发一个更小的 task packet（单文件、最小可运行范围），不要重复原长指令。
+- 唤醒：对疑似卡住的回合，优先用 interrupt_agent(<member_id>) 仅中断不移除——成员 id 即其子代理 id（add_member 返回的 member_id 可直接使用）；无法定位时退而直接 send_message 发一个更小的 task packet（单文件、最小可运行范围），消息会在当前回合结束后投递，不重复原长指令。仅当决定换人时才用 remove_member 并新建任务改派。
 - 同一成员连续失败时，先缩小任务；仍不行再改派，但保持“每个大纲任务仍在独立子对话完成”。
 - 以 git diff 为准，不信任口头“已完成”；任务输出与文件不一致时要求成员补产出。
+- 每次重试后重新读取成员与任务状态；记录“中断、唤醒、结果、状态”的完整链路，区分底层回合失败与任务层完成。
+- 任务完成后不要继续保留 `in_progress`；若成员无法再回报，队长必须基于可验证结果完成、取消或失败该任务，并说明依据。`cancelled` 同样要在 output 里写明原因。
 
 **完成标准**：没有任务留在 in_progress 且无人认领；每个任务都有 completed 状态、产出文件或明确报告。
+
+## 4a. 状态核对与恢复协议
+
+不要把单一状态字段当作事实。每轮监管必须同时核对：`agent_teams_status` 快照中成员的两个不同字段——`status`（注册状态：idle/ready 等）与 `activity`（实时活动：running/inactive 等），二者来源不同、分别读取、不要混用；另加任务 status、任务 output、队长收件箱，以及必要时的文件或 git 产出。
+
+- **完成判定**：只有任务 status 为 `completed`，且有成员消息或可验证产出，才算完成；单独的“已收到消息”不能代替任务收尾。
+- **陈旧状态**：成员 `status` 已回到 `idle`/`ready` 而 `activity` 仍显示 `running` 时，即为状态不同步（实测多出现在成员刚创建或回合切换瞬间）；不要继续等待，也不要把它报告为仍在执行。若任务已完成，直接进入收尾；若任务仍为 `in_progress`，发送最小收尾消息或将其取消并记录原因。
+- **卡住恢复**：一次检查发现 activity 为 running 且无新 output，不立即重试；下一轮仍无产出即视为卡住。先 interrupt_agent(<member_id>) 中断当前回合（不移除成员），再发送只包含单一验收动作的最小 task packet，并明确要求更新任务状态。
+- **失败恢复**：底层子代理报告失败但任务层已有可信 completed 结果时，保留结果并标记“底层回合失败、任务层完成”；不得声称整条链路成功。若任务层没有可信结果，重试一次；第二次仍失败则缩小任务或改派，并留下失败原因。
+- **收尾复核**：所有任务必须是 `completed`、`failed` 或明确 `cancelled`；不得留下无人处理的 `in_progress`。收尾前再检查一次团队状态，不以 UI 的“正在工作中”标签单独判断。
+- **禁止盲等**：不得用无界等待或重复发送相同长指令代替监管；每次唤醒都要缩小范围并设定下一次检查条件。
 
 ## 5. 汇总、验证、审查、留审
 
