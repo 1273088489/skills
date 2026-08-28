@@ -1,0 +1,146 @@
+ui-onboarding:
+  welcomeNoticeVersion: 2026-08-13.1
+permission:
+  defaultPreset: danger-full-access
+agent-presets:
+  default: code
+agent-default-model:
+provider: openrouter
+model: stealth/ox-alpha
+llm-pi-ai:
+  providers:
+    nvidia:
+      models:
+        - id: minimaxai/minimax-m3
+          name: MiniMax-M3
+          contextWindow: 1000000
+          maxTokens: <MASKED>
+        - id: moonshotai/kimi-k2.6
+          name: Kimi K2.6
+          contextWindow: 262144
+          maxTokens: <MASKED>
+        - id: openai/gpt-oss-120b
+          name: GPT-OSS-120B
+          contextWindow: 128000
+          maxTokens: <MASKED>
+        - id: z-ai/glm-5.2
+          name: GLM-5.2
+          contextWindow: 1000000
+          maxTokens: <MASKED>
+      apiKeyEnv: <MASKED>
+    wangchuan:
+      apiKeyEnv: <MASKED>
+      api: openai-responses
+      baseURL: https://api.123uq.com/v1
+      models:
+        - id: grok-4.6
+          name: Grok 4.6
+          reasoningEfforts:
+            low: low
+            medium: medium
+            high: high
+            xhigh: xhigh
+    yyds:
+      apiKeyEnv: <MASKED>
+      api: openai-responses
+      baseURL: https://www.yydsapi.uno/v1
+      models:
+        - id: gpt-5.5
+          name: gpt-5.5
+        - id: gpt-5.6-sol
+          name: gpt-5.6-sol
+          reasoningEfforts:
+            off: null
+            minimal: minimal
+            low: low
+            medium: medium
+            high: high
+            xhigh: xhigh
+            max: max
+        - id: gpt-5.6-terra
+          name: gpt-5.6-terra
+          reasoningEfforts:
+            off: null
+            minimal: minimal
+            low: low
+            medium: medium
+            high: high
+            xhigh: xhigh
+            max: max
+    luna:
+      apiKeyEnv: <MASKED>
+      api: openai-responses
+      baseURL: https://www.yydsapi.uno/v1
+      models:
+        - id: gpt-5.6-luna
+          name: gpt-5.6-luna
+          reasoningEfforts:
+            off:
+            minimal: minimal
+            low: low
+            medium: medium
+            high: high
+            xhigh: xhigh
+            max: max
+      displayName: yyds luna
+    wc-glm:
+      apiKeyEnv: <MASKED>
+      api: openai-responses
+      baseURL: https://image.123uq.com/v1
+      models:
+        - id: glm-5.2
+          name: glm-5.2
+        - id: glm-5.3
+          name: glm-5.3
+        - id: glm-5.3-flash
+          name: glm-5.3-flash
+          reasoningEfforts:
+            low: low
+            high: high
+            max: max
+    wc-ds:
+      apiKeyEnv: <MASKED>
+      api: openai-responses
+      baseURL: https://api.123uq.com/v1
+      models:
+        - id: deepseek-v4-flash
+          name: deepseek-v4-flash
+          contextWindow: 1000000
+          maxTokens: <MASKED>
+        - id: deepseek-v4-flash-vision-exp
+          name: deepseek-v4-flash-vision-exp
+          contextWindow: 1000000
+          maxTokens: <MASKED>
+        - id: deepseek-v4-pro
+          name: deepseek-v4-pro
+          contextWindow: 1000000
+          maxTokens: <MASKED>
+web-search-deepseek:
+  maxUses: 10
+pet:
+  visible: false
+  size: 160
+  right: 0
+  bottom: 41
+  name: angel
+  enabled: false
+ui-theme:
+  preference: dark
+skin-wallpaper:
+  enabled: false
+skin-background:
+  backgroundOpacity: 0
+  backgroundBlurEmpty: 0
+  backgroundBlurContent: 0
+  enabled: false
+skin-custom-theme:
+  applied: false
+describe-image:
+  baseURL: https://www.yydsapi.uno/v1
+  apiKey: <MASKED>
+  model: gpt-5.6-luna
+task-board:
+  preventIdleSleep: true
+  announceToAgent: true
+dsh-context:
+  defaultTrendMode: total

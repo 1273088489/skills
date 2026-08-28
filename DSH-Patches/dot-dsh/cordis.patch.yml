@@ -1,0 +1,17 @@
+# Your patch layer for this dsh profile, applied after every bundle layer:
+# a top-level YAML array of loader patch entries (id-targeted config
+# overrides, disables, and insert lists; `!!js` expressions allowed).
+- insert:
+    - id: mcp-tavily
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        transport: streamable-http
+        serverName: tavily
+        url: 'https://mcp.tavily.com/mcp/?tavilyApiKey=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'
+        headers: {}
+        toolCallTimeoutMs: 60000
+        failOnStartupError: false
+# archive-manager is pulled in transitively by dsh-web-ui-all; kill its
+# namespaced instance so it never loads.
+- id: web-ui-archive-manager
+  disabled: true

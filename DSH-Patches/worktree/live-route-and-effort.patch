@@ -1,0 +1,318 @@
+diff --git a/packages/core/agent-loop/src/agent.ts b/packages/core/agent-loop/src/agent.ts
+index 3ef1ec7aa4..44fae965d8 100644
+--- a/packages/core/agent-loop/src/agent.ts
++++ b/packages/core/agent-loop/src/agent.ts
+@@ -442,7 +442,9 @@ export class ReactLoopAgent implements Agent {
+       && persistedConfig.model === route.model
+       && persistedHeader?.adapterDefaults?.reasoningEffort !== true
+       ? persistedConfig.reasoningEffort
+-      : undefined
++      // A fresh loop owns its creation-declared effort until its own header
++      // exists; a persisted header on another route must not leak its effort.
++      : this.options.reasoningEffort
+     const maxTokens = this.options.maxTokens
+     const seedConfig = deepFreeze(structuredClone(
+       this.requestHeaderLogged
+diff --git a/packages/core/agent/src/runtime-types.ts b/packages/core/agent/src/runtime-types.ts
+index 7d713f8c77..da2d5e11cb 100644
+--- a/packages/core/agent/src/runtime-types.ts
++++ b/packages/core/agent/src/runtime-types.ts
+@@ -7,7 +7,7 @@
+ 
+ import type { Context } from '@deepseek-ai/cordis'
+ import type { Scoped } from '@deepseek-ai/dsh-scope'
+-import type { LlmCallConfig, LlmFailure, ResolvedRetryPolicy } from '@deepseek-ai/dsh-llm'
++import type { LlmCallConfig, LlmFailure, ReasoningEffortId, ResolvedRetryPolicy } from '@deepseek-ai/dsh-llm'
+ import type { AgentCancelCause, Session, SessionId, UserMessage } from '@deepseek-ai/dsh-session'
+ export type { AgentCancelCause } from '@deepseek-ai/dsh-session'
+ import type { Inbox } from './inbox.ts'
+@@ -28,6 +28,13 @@ export interface AgentOptions {
+   model?: string
+   /** Maximum output tokens for each conversation-model request. */
+   maxTokens?: number
++  /**
++   * Adapter-owned reasoning-effort identifier for a fresh loop whose session
++   * has not logged a request header yet. The loop folds its persisted header
++   * once one exists (an exact-route effort is restored there), so this value
++   * seeds the first request and any later step that re-resolves defaults.
++   */
++  reasoningEffort?: ReasoningEffortId
+ }
+ 
+ /** Options for {@link Agent.cancel}. */
+diff --git a/packages/subagent/subagent/src/child-agent.ts b/packages/subagent/subagent/src/child-agent.ts
+index 7582338858..4e4c59197f 100644
+--- a/packages/subagent/subagent/src/child-agent.ts
++++ b/packages/subagent/subagent/src/child-agent.ts
+@@ -57,9 +57,33 @@ export function resolveChildDepth(parent: Agent, maxDepth: number | undefined):
+ }
+ 
+ /**
+- * Resolve the child's `AgentOptions`: the parent's provider/model/maxTokens
+- * route unless the request overrides it, stamped with the child's own
+- * delegation depth.
++ * The parent's effective model route: the provider and model its most recent
++ * logged request was actually served on, empty when the session has sent none.
++ *
++ * This — not `parent.options` — is usually what "the parent's route" means at
++ * delegation time: a deployment may re-point a session's requests (a web model
++ * picker, a settings-level default) without rewriting the creation-time seed
++ * options, so inheriting the seed silently sends children down a route the
++ * parent itself no longer uses.
++ * @param parent - the delegating parent whose served route is read.
++ * @returns the served provider/model pair, field-wise sparse.
++ */
++export function parentLiveRoute(parent: Agent): { provider?: string; model?: string } {
++  const config = parent.session.requestHeader()?.config
++  return {
++    ...config?.provider !== undefined ? { provider: config.provider } : {},
++    ...config?.model !== undefined ? { model: config.model } : {},
++  }
++}
++
++/**
++ * Resolve the child's `AgentOptions`: the parent's route unless the request
++ * overrides it, stamped with the child's own delegation depth.
++ *
++ * The route tiers are, per field: an explicit per-child override wins; next
++ * comes the parent's live served route ({@link parentLiveRoute}); last is the
++ * parent's creation-time seed options. `maxTokens` keeps its historical
++ * seed-only inheritance — the logged value is a per-request cap, not a route.
+  * @param parent - the delegating parent whose route the child inherits.
+  * @param requested - per-child overrides, if any.
+  * @param childDepth - the resolved delegation depth to stamp.
+@@ -70,8 +94,9 @@ export function resolveChildAgentOptions(
+   requested: AgentOptions | undefined,
+   childDepth: number,
+ ): AgentOptions {
+-  const parentProvider = parent.options.provider
+-  const parentModel = parent.options.model
++  const live = parentLiveRoute(parent)
++  const parentProvider = requested?.provider ?? live.provider ?? parent.options.provider
++  const parentModel = requested?.model ?? live.model ?? parent.options.model
+   const parentMaxTokens = parent.options.maxTokens
+   return {
+     ...parentProvider !== undefined ? { provider: parentProvider } : {},
+diff --git a/packages/subagent/subagent/src/continuation.ts b/packages/subagent/subagent/src/continuation.ts
+index 652a3ba6c8..beee924023 100644
+--- a/packages/subagent/subagent/src/continuation.ts
++++ b/packages/subagent/subagent/src/continuation.ts
+@@ -43,6 +43,7 @@ import {
+   applyChildComposition,
+   captureDelegatedPolicyOverrides,
+   childSessionMeta,
++  parentLiveRoute,
+   resolveChildAgentOptions,
+   resolveChildDepth,
+ } from './child-agent.ts'
+@@ -417,8 +418,12 @@ export class SubagentContinuationManager {
+     const childDepth = resolveChildDepth(parent, request.maxDepth)
+     // Snapshot before any await: invalid descriptor JSON rejects the call
+     // before a child exists, and the detached value is what reaches the log.
+-    const agentProvider = request.agentOptions?.provider ?? parent.options.provider
+-    const agentModel = request.agentOptions?.model ?? parent.options.model
++    // Same route tiers as `resolveChildAgentOptions`, so the durable
++    // composition record always describes the route the child will serve on:
++    // explicit override, then the parent's live served route, then the seed.
++    const live = parentLiveRoute(parent)
++    const agentProvider = request.agentOptions?.provider ?? live.provider ?? parent.options.provider
++    const agentModel = request.agentOptions?.model ?? live.model ?? parent.options.model
+     const descriptor = snapshotSubagentDescriptor({
+       mode: 'continuable',
+       provider: spec.provider,
+diff --git a/packages/subagent/subagent/tests/child-agent-route.spec.ts b/packages/subagent/subagent/tests/child-agent-route.spec.ts
+new file mode 100644
+index 0000000000..4e5cf64207
+--- /dev/null
++++ b/packages/subagent/subagent/tests/child-agent-route.spec.ts
+@@ -0,0 +1,95 @@
++/**
++ * Child route resolution: a delegation follows the route the parent's latest
++ * request was actually served on, not the parent's creation-time seed options.
++ * The seed stays as the last tier, and an explicit per-child override still
++ * wins over everything — the one-shot driver and the continuation manager
++ * share this resolver, so both delegation shapes get the same tiers.
++ */
++
++import { describe, expect, it } from 'vitest'
++import type { Agent, AgentOptions } from '@deepseek-ai/dsh-agent'
++import type { ReasoningEffortId } from '@deepseek-ai/dsh-llm'
++import { parentLiveRoute, resolveChildAgentOptions } from '../src/child-agent.ts'
++
++/** A minimal Agent stand-in: only `options` and `session.requestHeader()` are read. */
++function stubAgent(
++  options: AgentOptions,
++  loggedConfig?: { provider?: string; model?: string },
++): Agent {
++  return {
++    options,
++    session: {
++      requestHeader: () => loggedConfig === undefined ? undefined : { config: loggedConfig },
++    },
++  } as unknown as Agent
++}
++
++describe('resolveChildAgentOptions route tiers', () => {
++  it('follows the parent live served route over the creation-time seed', () => {
++    const parent = stubAgent(
++      { provider: 'seed-provider', model: 'seed-model' },
++      { provider: 'live-provider', model: 'live-model' },
++    )
++    const options = resolveChildAgentOptions(parent, undefined, 1)
++    expect(options.provider).toBe('live-provider')
++    expect(options.model).toBe('live-model')
++  })
++
++  it('keeps an explicit per-request override above the live route', () => {
++    const parent = stubAgent(
++      { provider: 'seed-provider', model: 'seed-model' },
++      { provider: 'live-provider', model: 'live-model' },
++    )
++    const options = resolveChildAgentOptions(parent, { provider: 'pinned', model: 'pinned-model' }, 2)
++    expect(options.provider).toBe('pinned')
++    expect(options.model).toBe('pinned-model')
++    expect(options.subagentDepth).toBe(2)
++  })
++
++  it('falls back to the creation-time seed when no request was served yet', () => {
++    const parent = stubAgent({ provider: 'seed-provider', model: 'seed-model' })
++    const options = resolveChildAgentOptions(parent, undefined, 0)
++    expect(options.provider).toBe('seed-provider')
++    expect(options.model).toBe('seed-model')
++    expect(options.subagentDepth).toBe(0)
++  })
++
++  it('resolves field-wise when the served header is sparse', () => {
++    const parent = stubAgent(
++      { provider: 'seed-provider', model: 'seed-model' },
++      { provider: 'live-provider' },
++    )
++    const options = resolveChildAgentOptions(parent, undefined, 1)
++    expect(options.provider).toBe('live-provider')
++    expect(options.model).toBe('seed-model')
++  })
++
++  it('carries an explicit per-request reasoning effort into the child options', () => {
++    const parent = stubAgent(
++      { provider: 'seed-provider', model: 'seed-model' },
++      { provider: 'live-provider', model: 'live-model' },
++    )
++    const options = resolveChildAgentOptions(parent, { reasoningEffort: 'high' as ReasoningEffortId }, 1)
++    expect(options.provider).toBe('live-provider')
++    expect(options.model).toBe('live-model')
++    expect(options.reasoningEffort).toBe('high')
++  })
++
++  it('keeps seed-only maxTokens inheritance and stamps the depth', () => {
++    const parent = stubAgent({ maxTokens: 4096 }, { provider: 'live-provider', model: 'live-model' })
++    const options = resolveChildAgentOptions(parent, undefined, 3)
++    expect(options.maxTokens).toBe(4096)
++    expect(options.subagentDepth).toBe(3)
++  })
++})
++
++describe('parentLiveRoute', () => {
++  it('is empty for a session that never served a request', () => {
++    expect(parentLiveRoute(stubAgent({}))).toEqual({})
++  })
++
++  it('reports the latest served pair without inventing fields', () => {
++    expect(parentLiveRoute(stubAgent({}, { provider: 'p', model: 'm' })))
++      .toEqual({ provider: 'p', model: 'm' })
++  })
++})
+diff --git a/packages/subagent/tool-subagent/src/index.ts b/packages/subagent/tool-subagent/src/index.ts
+index 86d00c6d0b..6c0a31a04b 100644
+--- a/packages/subagent/tool-subagent/src/index.ts
++++ b/packages/subagent/tool-subagent/src/index.ts
+@@ -12,6 +12,7 @@ import type { Context } from '@deepseek-ai/cordis'
+ import z from '@deepseek-ai/schemastery'
+ import { defineTool } from '@deepseek-ai/dsh-tools'
+ import type { AgentOptions } from '@deepseek-ai/dsh-agent'
++import type { ReasoningEffortId } from '@deepseek-ai/dsh-llm'
+ import type { ContentBlock } from '@deepseek-ai/dsh-llm'
+ import type { JsonValue } from '@deepseek-ai/dsh-session'
+ import { assertSubagentMaxDepth, settleRun } from '@deepseek-ai/dsh-subagent'
+@@ -332,6 +333,10 @@ export function apply(ctx: Context, config: Config): void {
+               : 'Whether to run as a background job and return its id. Defaults to false; collect with job_output or stop with job_kill.',
+           },
+         } : {},
++        reasoning_effort: {
++          type: 'string' as const,
++          description: 'Optional reasoning-effort id for the child on this delegation. Judge the task difficulty yourself and match the grade to it: reserve the highest tier for genuinely hard multi-step reasoning, and use a low tier for mechanical or retrieval-style work — spend effort where the task earns it, and do not waste it where it does not. Omit to leave the child on the target model\'s default effort. The id must be accepted by the child\'s resolved model.',
++        },
+       },
+       output: {
+         schema: {
+@@ -383,11 +388,16 @@ export function apply(ctx: Context, config: Config): void {
+         }
+ 
+         const maxDepth = typeof config.maxDepth === 'number' ? config.maxDepth : undefined
++        // A per-delegation effort merges over any deployment-pinned options, so
++        // a caller can grade one task without unpinning the shared defaults.
++        const agentOptions = args.reasoning_effort === undefined
++          ? config.agentOptions
++          : { ...config.agentOptions, reasoningEffort: args.reasoning_effort as ReasoningEffortId }
+         const request = {
+           label: args.description,
+           prompt: [{ type: 'text', text: args.prompt }] as ContentBlock[],
+           parent,
+-          ...config.agentOptions !== undefined ? { agentOptions: config.agentOptions } : {},
++          ...agentOptions !== undefined ? { agentOptions } : {},
+           ...config.persona !== undefined ? { persona: config.persona } : {},
+           ...config.toolFilter !== undefined ? { toolFilter: config.toolFilter } : {},
+           ...maxDepth !== undefined ? { maxDepth } : {},
+diff --git a/packages/subagent/tool-subagent/tests/tool-subagent.spec.ts b/packages/subagent/tool-subagent/tests/tool-subagent.spec.ts
+index 1ee5e40228..6f4bb2ceb9 100644
+--- a/packages/subagent/tool-subagent/tests/tool-subagent.spec.ts
++++ b/packages/subagent/tool-subagent/tests/tool-subagent.spec.ts
+@@ -100,12 +100,38 @@ describe('dsh-tool-subagent', () => {
+     expect(text(result)).toBe('child says hi')
+   })
+ 
+-  it('exposes description + prompt + run_in_background to the model (no provider/type parameter)', async () => {
++  it('passes a per-delegation reasoning_effort into the child agentOptions', async () => {
++    let captured: SubagentStartRequest | undefined
++    const ctx = await setup(
++      { provider: 'mock' },
++      { reply: 'child says hi', onStart: (request) => { captured = request } },
++    )
++    const result = await callSubagent(ctx, {
++      description: 'grade me',
++      prompt: 'go research X',
++      run_in_background: false,
++      reasoning_effort: 'high',
++    })
++    expect(result.isError).toBe(false)
++    expect(captured?.agentOptions?.reasoningEffort).toBe('high')
++  })
++
++  it('omits agentOptions entirely when no per-delegation effort is given', async () => {
++    let captured: SubagentStartRequest | undefined
++    const ctx = await setup(
++      { provider: 'mock' },
++      { reply: 'child says hi', onStart: (request) => { captured = request } },
++    )
++    await callSubagent(ctx, { description: 'plain', prompt: 'p', run_in_background: false })
++    expect(captured?.agentOptions).toBeUndefined()
++  })
++
++  it('exposes description + prompt + run_in_background + reasoning_effort to the model (no provider/type parameter)', async () => {
+     const ctx = await setup({ provider: 'mock' })
+     const schema = ctx.tools.schemas().find(s => s.name === 'subagent')
+     expect(schema).toBeDefined()
+     const props = (schema!.parameters as { properties?: Record<string, unknown> }).properties ?? {}
+-    expect(Object.keys(props).sort()).toEqual(['description', 'prompt', 'run_in_background'])
++    expect(Object.keys(props).sort()).toEqual(['description', 'prompt', 'reasoning_effort', 'run_in_background'])
+     expect(schema!.description).toContain('job_output')
+   })
+ 
+@@ -113,7 +139,7 @@ describe('dsh-tool-subagent', () => {
+     const ctx = await setup({ provider: 'mock', enableRunInBackground: false })
+     const schema = ctx.tools.schemas().find(s => s.name === 'subagent')
+     const props = (schema!.parameters as { properties?: Record<string, unknown> }).properties ?? {}
+-    expect(Object.keys(props).sort()).toEqual(['description', 'prompt'])
++    expect(Object.keys(props).sort()).toEqual(['description', 'prompt', 'reasoning_effort'])
+     expect(schema!.description).not.toContain('job_output')
+   })
+ 

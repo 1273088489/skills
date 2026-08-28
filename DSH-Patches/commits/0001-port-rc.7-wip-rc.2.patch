@@ -1,0 +1,258 @@
+From d28e0605b798c585cc5ec682a4301fad6a324a9c Mon Sep 17 00:00:00 2001
+From: angel <1273088489@qq.com>
+Date: Mon, 24 Aug 2026 02:09:34 +0800
+Subject: [PATCH] =?UTF-8?q?port:=20=E6=89=8B=E5=B7=A5=E5=A3=B0=E6=98=8E?=
+ =?UTF-8?q?=E6=A8=A1=E5=9E=8B=E6=8E=A8=E7=90=86=E8=83=BD=E5=8A=9B=E8=87=AA?=
+ =?UTF-8?q?=E5=8A=A8=E6=8E=A8=E6=96=AD=20+=20=E9=87=8D=E8=AF=95=E5=8F=82?=
+ =?UTF-8?q?=E6=95=B0=E8=B0=83=E4=BC=98=EF=BC=88=E8=87=AA=20rc.7=20wip=20?=
+ =?UTF-8?q?=E7=A7=BB=E6=A4=8D=E5=88=B0=20rc.2=EF=BC=89?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+- catalog.ts: inferHandDeclaredReasoning() 适配 rc.2 compatGate 门控架构，
+  注入 resolveModelCompat 的无显式配置分支（语义与原补丁等价）
+- retry-policy.ts: 默认重试 4 次、初始退避 2s、最大退避 15s
+- 四个测试文件的期望同步；上游新增 always 模式测试的默认延迟断言更新为补丁值
+
+验证: vitest run packages/llm 全绿(938/938)，pnpm run typecheck 通过
+---
+ packages/llm/llm-pi-ai/src/catalog.ts        | 59 +++++++++++++++++---
+ packages/llm/llm-pi-ai/tests/adapter.spec.ts |  2 +-
+ packages/llm/llm-pi-ai/tests/catalog.spec.ts | 16 +++---
+ packages/llm/llm/src/retry-policy.ts         | 12 ++--
+ packages/llm/llm/tests/retry-policy.spec.ts  | 14 ++---
+ packages/llm/llm/tests/service.spec.ts       |  2 +-
+ 6 files changed, 75 insertions(+), 30 deletions(-)
+
+diff --git a/packages/llm/llm-pi-ai/src/catalog.ts b/packages/llm/llm-pi-ai/src/catalog.ts
+index 1e9b126dd5..40d3d3cb4f 100644
+--- a/packages/llm/llm-pi-ai/src/catalog.ts
++++ b/packages/llm/llm-pi-ai/src/catalog.ts
+@@ -627,6 +627,46 @@ interface ModelReasoning {
+   thinkingLevelMap?: ThinkingLevelMap
+ }
+ 
++/** Infer reasoning capability for a hand-declared model from its id. */
++function inferHandDeclaredReasoning(
++  modelId: string,
++  api: string,
++): { reasoning: true; thinkingLevelMap: ThinkingLevelMap; compat: OpenAICompletionsCompat } {
++  const id = modelId.toLowerCase()
++  const mapFor = (levels: Readonly<Record<string, string | null>>): ThinkingLevelMap => ({
++    off: null, minimal: null, low: null, medium: null, high: null, xhigh: null, max: null, ...levels,
++  })
++  let map: ThinkingLevelMap
++  let thinkingFormat: PiAiThinkingFormat = 'openai'
++  if (id.includes('deepseek')) {
++    map = mapFor({ low: 'low', high: 'high', max: 'max' })
++    thinkingFormat = 'deepseek'
++  } else if (/gpt-5|(^|\/)o1($|\/)|(^|\/)o3($|\/)/.test(id)) {
++    map = mapFor({ minimal: 'minimal', low: 'low', medium: 'medium', high: 'high' })
++  } else if (/claude|sonnet|opus|haiku/.test(id)) {
++    map = mapFor({ low: 'low', medium: 'medium', high: 'high', xhigh: 'xhigh', max: 'max' })
++  } else if (/glm|qwen/.test(id)) {
++    map = mapFor({ low: 'low', medium: 'medium', high: 'high' })
++  } else if (/kimi|moonshot|k2/.test(id)) {
++    map = mapFor({ low: 'low', medium: 'medium', high: 'high', max: 'max' })
++  } else if (/minimax|(^|\/)m3($|\/)/.test(id)) {
++    map = mapFor({ low: 'low', medium: 'medium', high: 'high' })
++  } else {
++    // Selector fallback for ids nothing above recognizes: offer the full
++    // ladder so a thinking-capable gateway model is reachable without a
++    // declaration, while a non-thinking model only misbehaves once the user
++    // explicitly picks a level — the provider's error is the feedback.
++    map = mapFor({ low: 'low', medium: 'medium', high: 'high', xhigh: 'xhigh', max: 'max' })
++  }
++  return {
++    reasoning: true,
++    thinkingLevelMap: map,
++    compat: api === 'openai-completions'
++      ? { thinkingFormat, supportsReasoningEffort: true }
++      : {},
++  }
++}
++
+ /**
+  * Resolve one model's reasoning capability from its declared efforts.
+  *
+@@ -648,15 +688,13 @@ function resolveModelReasoning(
+   provider: string,
+   entry: PiAiModelProfile,
+   base: Model<Api> | undefined,
++  api: string,
+ ): ModelReasoning {
+   const efforts = entry.reasoningEfforts
+   if (efforts === undefined) {
+-    // Reasoning rides the installed entry or is absent: a bare capability flag
+-    // would make pi-ai advertise effort levels with no `thinkingLevelMap` to
+-    // spell them, and no listing endpoint reports a model's reasoning
+-    // protocol. The entry's map (when any) arrives through the `...base`
+-    // spread in the model literal.
+-    return { reasoning: base?.reasoning ?? false }
++    if (base === undefined) return inferHandDeclaredReasoning(entry.id, api)
++    // Catalog models keep the installed catalog capability and map.
++    return { reasoning: base.reasoning }
+   }
+   // The installed entry's map may ride along through `...base`; pi-ai never
+   // reads it on a non-reasoning model, so stripping it is not worth a field
+@@ -743,7 +781,12 @@ function resolveModelCompat(
+     }
+     configured[field] = value
+   }
+-  if (Object.keys(configured).length === 0) return {}
++  if (Object.keys(configured).length === 0) {
++    // Hand-declared models have no catalog compat metadata. Mirror the
++    // reasoning fallback so visible choices and wire dispatch agree.
++    if (base === undefined) return { compat: inferHandDeclaredReasoning(entry.id, api).compat }
++    return {}
++  }
+   // The installed entry's compat matches the entry's OWN api — a route-level
+   // `api` repoint (an anthropic catalog served through an OpenAI-compatible
+   // gateway) leaves `base.compat` in the other protocol's shape, so it is
+@@ -875,7 +918,7 @@ export function resolveRouteModels(request: RouteCatalogRequest): RouteCatalog {
+       cost: base?.cost ?? NO_COST,
+       contextWindow,
+       maxTokens,
+-      ...resolveModelReasoning(provider, entry, base),
++      ...resolveModelReasoning(provider, entry, base, api),
+       ...resolveModelCompat(provider, entry, request.compat, base, api),
+     }
+   })
+diff --git a/packages/llm/llm-pi-ai/tests/adapter.spec.ts b/packages/llm/llm-pi-ai/tests/adapter.spec.ts
+index e2ed0233d9..30dd6573c7 100644
+--- a/packages/llm/llm-pi-ai/tests/adapter.spec.ts
++++ b/packages/llm/llm-pi-ai/tests/adapter.spec.ts
+@@ -449,7 +449,7 @@ describe('provider profile lifecycle', () => {
+     })
+     expect(ctx.llm.providerRetryPolicy('anthropic')).toMatchObject({
+       mode: 'normal',
+-      maxRetries: 5,
++      maxRetries: 4,
+     })
+     await fiber.dispose()
+     expect(ctx.llm.listProviders()).toEqual([])
+diff --git a/packages/llm/llm-pi-ai/tests/catalog.spec.ts b/packages/llm/llm-pi-ai/tests/catalog.spec.ts
+index 99886cdbaf..77f5fb160f 100644
+--- a/packages/llm/llm-pi-ai/tests/catalog.spec.ts
++++ b/packages/llm/llm-pi-ai/tests/catalog.spec.ts
+@@ -113,16 +113,18 @@ describe('hand-declared providers', () => {
+     })
+   })
+ 
+-  it('offers no reasoning control it could not honour', async () => {
++  it('offers the full thinking ladder for unrecognized hand-declared models', async () => {
+     const server = await mockServer([])
+     const ctx = await harness(gateway(`${server.url}/v1`))
+ 
+-    // pi-ai reports a model with no reasoning metadata as supporting the single
+-    // level `off`, but `off` is translated to *omitting* the reasoning option —
+-    // byte-for-byte the same request as naming no effort — so a provider whose
+-    // own default is to think would keep thinking with `off` selected. The
+-    // capability is reported unavailable instead of offering that control.
+-    expect((await ctx.llm.resolveModelInfo('acme-gateway', 'acme-large')).reasoning).toBeUndefined()
++    // A hand-declared model (no installed catalog entry) receives inferred
++    // thinking levels from its id. The fallback offers the full ladder, so a
++    // thinking-capable gateway model is reachable without a declaration; a
++    // model that cannot think is unaffected until the user explicitly asks —
++    // at which point the provider's error is immediate feedback rather than
++    // a silent miss.
++    expect((await ctx.llm.resolveModelInfo('acme-gateway', 'acme-large')).reasoning?.efforts.map(e => e.id))
++      .toEqual(['low', 'medium', 'high', 'xhigh', 'max'])
+ 
+     // A catalog route is unaffected: its models carry the metadata that makes
+     // `off` actually disable thinking.
+diff --git a/packages/llm/llm/src/retry-policy.ts b/packages/llm/llm/src/retry-policy.ts
+index f6e6175cb9..8092f9f072 100644
+--- a/packages/llm/llm/src/retry-policy.ts
++++ b/packages/llm/llm/src/retry-policy.ts
+@@ -11,9 +11,9 @@ import z from '@deepseek-ai/schemastery'
+ import { MAX_TIMER_DELAY_MS } from '@deepseek-ai/dsh-timeout'
+ import { EMPTY_RESPONSE_CODE } from './error.ts'
+ 
+-const DEFAULT_MAX_RETRIES = 5
+-const DEFAULT_INITIAL_DELAY_MS = 500
+-const DEFAULT_MAX_DELAY_MS = 10_000
++const DEFAULT_MAX_RETRIES = 4
++const DEFAULT_INITIAL_DELAY_MS = 2_000
++const DEFAULT_MAX_DELAY_MS = 15_000
+ const DEFAULT_JITTER_RATIO = 0.1
+ const DEFAULT_RETRYABLE_CODES = Object.freeze([
+   EMPTY_RESPONSE_CODE,
+@@ -25,9 +25,9 @@ const DEFAULT_RETRYABLE_CODES = Object.freeze([
+ 
+ /** Bounded exponential backoff with symmetric jitter around each local delay. */
+ export interface BackoffConfig {
+-  /** Initial local exponential-backoff delay in milliseconds (default 500). */
++  /** Initial local exponential-backoff delay in milliseconds (default 2000). */
+   initialDelayMs?: number
+-  /** Maximum locally scheduled or accepted provider delay in milliseconds (default 10000). */
++  /** Maximum locally scheduled or accepted provider delay in milliseconds (default 15000). */
+   maxDelayMs?: number
+   /** Symmetric random multiplier range around one (default 0.1). */
+   jitterRatio?: number
+@@ -37,7 +37,7 @@ export interface BackoffConfig {
+ export interface NormalRetryPolicyConfig {
+   /** Retry only configured transient failure codes. */
+   mode: 'normal'
+-  /** Maximum eligible retries after the first request (default 5). */
++  /** Maximum eligible retries after the first request (default 4). */
+   maxRetries?: number
+   /** Stable failure codes eligible for this policy. */
+   retryableCodes?: string[]
+diff --git a/packages/llm/llm/tests/retry-policy.spec.ts b/packages/llm/llm/tests/retry-policy.spec.ts
+index cc7ebb8fa7..00d03d2d6e 100644
+--- a/packages/llm/llm/tests/retry-policy.spec.ts
++++ b/packages/llm/llm/tests/retry-policy.spec.ts
+@@ -12,10 +12,10 @@ describe('provider retry policy', () => {
+ 
+     expect(policy).toEqual({
+       mode: 'normal',
+-      maxRetries: 5,
++      maxRetries: 4,
+       retryableCodes: ['EMPTY_RESPONSE', 'RATE_LIMIT', 'SERVER', 'TIMEOUT', 'TRANSPORT'],
+-      initialDelayMs: 500,
+-      maxDelayMs: 10_000,
++      initialDelayMs: 2_000,
++      maxDelayMs: 15_000,
+       jitterRatio: 0.1,
+     })
+     expect(Object.isFrozen(policy)).toBe(true)
+@@ -52,8 +52,8 @@ describe('provider retry policy', () => {
+   it('resolves always mode with default backoff', () => {
+     expect(resolveRetryPolicy({ mode: 'always' }, 'provider.retryPolicy')).toEqual({
+       mode: 'always',
+-      initialDelayMs: 500,
+-      maxDelayMs: 10_000,
++      initialDelayMs: 2_000,
++      maxDelayMs: 15_000,
+       jitterRatio: 0.1,
+     })
+     expect(RetryPolicySchema).toBeDefined()
+@@ -68,8 +68,8 @@ describe('provider retry policy', () => {
+ 
+     expect(resolveRetryPolicy(layered, 'provider.retryPolicy')).toEqual({
+       mode: 'always',
+-      initialDelayMs: 500,
+-      maxDelayMs: 10_000,
++      initialDelayMs: 2_000,
++      maxDelayMs: 15_000,
+       jitterRatio: 0.1,
+     })
+   })
+diff --git a/packages/llm/llm/tests/service.spec.ts b/packages/llm/llm/tests/service.spec.ts
+index 4c624fa862..397ee6540e 100644
+--- a/packages/llm/llm/tests/service.spec.ts
++++ b/packages/llm/llm/tests/service.spec.ts
+@@ -219,7 +219,7 @@ describe('LlmRuntime', () => {
+     expect(ctx.llm.providerRetryPolicy('configured')).toBe(configured)
+     expect(ctx.llm.providerRetryPolicy('defaulted')).toMatchObject({
+       mode: 'normal',
+-      maxRetries: 5,
++      maxRetries: 4,
+     })
+     expect(() => ctx.llm.providerRetryPolicy('missing')).toThrow(
+       expect.objectContaining({ code: 'NO_ADAPTER' }),
+-- 
+2.43.0
+
