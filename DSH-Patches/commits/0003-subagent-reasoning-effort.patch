@@ -1,3 +1,26 @@
+From 474cbcb969fcefdc4be6956231661e0e3630fa10 Mon Sep 17 00:00:00 2001
+From: angel <1273088489@qq.com>
+Date: Fri, 4 Sep 2026 21:59:22 +0800
+Subject: [PATCH] =?UTF-8?q?feat(subagent):=20=E6=B4=BE=E5=8F=91=E5=AD=90?=
+ =?UTF-8?q?=E4=BB=A3=E7=90=86=E6=94=AF=E6=8C=81=E6=8C=89=E6=AC=A1=E4=BC=A0?=
+ =?UTF-8?q?=20reasoning=5Feffort=EF=BC=8C=E8=B7=AF=E7=94=B1=E7=BB=A7?=
+ =?UTF-8?q?=E6=89=BF=E7=88=B6=E4=BC=9A=E8=AF=9D=E5=AE=9E=E9=99=85=E6=9C=8D?=
+ =?UTF-8?q?=E5=8A=A1=E8=B7=AF=E7=94=B1?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+---
+ packages/core/agent-loop/src/agent.ts         |  4 +-
+ packages/core/agent/src/runtime-types.ts      |  9 +-
+ packages/subagent/subagent/src/child-agent.ts | 35 ++++++-
+ .../subagent/subagent/src/continuation.ts     |  9 +-
+ .../subagent/tests/child-agent-route.spec.ts  | 95 +++++++++++++++++++
+ packages/subagent/tool-subagent/src/index.ts  | 12 ++-
+ .../tool-subagent/tests/tool-subagent.spec.ts | 32 ++++++-
+ 7 files changed, 183 insertions(+), 13 deletions(-)
+ create mode 100644 packages/subagent/subagent/tests/child-agent-route.spec.ts
+
 diff --git a/packages/core/agent-loop/src/agent.ts b/packages/core/agent-loop/src/agent.ts
 index 3ef1ec7aa4..44fae965d8 100644
 --- a/packages/core/agent-loop/src/agent.ts
@@ -316,3 +339,6 @@ index 1ee5e40228..6f4bb2ceb9 100644
      expect(schema!.description).not.toContain('job_output')
    })
  
+-- 
+2.43.0
+
