@@ -17,6 +17,5 @@
   disabled: true
 - id: desktop-launcher
   disabled: true
-# archive-manager still imports a removed client face and can abort dsh web.
-- id: web-ui-archive-manager
-  disabled: true
+# (archive-manager is not installed and web-all no longer bundles it, so no
+# disable row is needed here; re-add one only if that plugin is installed.)
