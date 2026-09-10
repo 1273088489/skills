@@ -7,11 +7,16 @@
       config:
         transport: streamable-http
         serverName: tavily
-        url: 'https://mcp.tavily.com/mcp/?tavilyApiKey=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'
+        url: 'https://mcp.tavily.com/mcp/?tavilyApiKey=REPLACE_ME'
         headers: {}
         toolCallTimeoutMs: 60000
         failOnStartupError: false
-# archive-manager is pulled in transitively by dsh-web-ui-all; kill its
-# namespaced instance so it never loads.
+# Conservative boot for DSH 0.1.5-rc.1: these two have no 0.1.5-aligned
+# release (panel/Agent API risk). Re-enable after they publish a matching build.
+- id: ui-chat-recovery
+  disabled: true
+- id: desktop-launcher
+  disabled: true
+# archive-manager still imports a removed client face and can abort dsh web.
 - id: web-ui-archive-manager
   disabled: true

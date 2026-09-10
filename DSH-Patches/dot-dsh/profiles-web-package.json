@@ -1,0 +1,32 @@
+{
+  "name": "dsh-profile-web",
+  "private": true,
+  "dependencies": {
+    "@dhicoc/dsh-reverse-skill": "^1.0.5",
+    "@linxin666/dsh-chat-recovery": "0.3.5",
+    "@linxin666/dsh-desktop-launcher": "0.3.13",
+    "@linxin666/dsh-web-all": "0.3.20",
+    "@liustack/modlens": "3.26.1",
+    "aegis": "git+https://github.com/GanyuanRan/Aegis.git#v2.9.9",
+    "dsh-context": "0.49.1",
+    "dsh-remote-plugin": "0.6.24",
+    "dshmarket": "1.45.1"
+  },
+  "dsh": {
+    "profile": {
+      "bundles": [
+        "@deepseek-ai/dsh-base",
+        "@deepseek-ai/dsh-web-app",
+        "@linxin666/dsh-web-all",
+        "@linxin666/dsh-chat-recovery",
+        "@linxin666/dsh-desktop-launcher",
+        "@liustack/modlens",
+        "dshmarket",
+        "aegis",
+        "@dhicoc/dsh-reverse-skill",
+        "dsh-context",
+        "dsh-remote-plugin"
+      ]
+    }
+  }
+}
