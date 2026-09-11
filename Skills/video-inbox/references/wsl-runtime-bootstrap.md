@@ -123,7 +123,7 @@ undici, whose matcher reads a bare `::1` as host `:` port `1`"*。
 httpx.InvalidURL: Invalid port: ':1]'
 ```
 
-**影响面比「下载失败」严重得多**——实测确认：
+**技术上比「下载失败」更彻底**——实测确认：
 
 | 场景 | 结果 |
 |---|---|
@@ -134,7 +134,14 @@ httpx.InvalidURL: Invalid port: ':1]'
 
 即**只要进程读出 `NO_PROXY`（httpx 默认 `trust_env=True`），所有请求在解析阶段就炸**；
 `[::1]` 与任意代理变量（`HTTP_PROXY`/`HTTPS_PROXY`）同时存在即触发。
-所以 ASR 不是「偶尔下载失败」，而是**完全不可用**。
+
+**但业务影响有限**（不必恐慌）：
+
+- ASR 只在**没有字幕**时才被调用（`cli.py` 的 `if not segs:`）——有字幕的 YouTube/B站 不受影响
+- 失败是**优雅降级**：返回 `{"ok": false, "result": "asr_failed"}`，不崩溃、不写坏笔记、不丢数据
+- 受影响的实际只有**抖音路径**（实测 8 条缓存全部 `subtitles_route: none` + `asr_model: small`，即 100% 依赖 ASR）
+
+所以症状是「抓无字幕视频时明确失败」，而不是「整个 skill 报废」。
 
 **改 `~/.bashrc` 无效**——非交互 `bash -c` 不读它，且 `NO_PROXY` 由 DSH 在运行时注入子进程，
 不在任何 shell 配置文件里。本 skill 已在代码层规避：`video_inbox_v2/config.py` 顶部的
@@ -147,9 +154,27 @@ NO_PROXY="127.0.0.1,localhost" no_proxy="127.0.0.1,localhost" \
   .venv/bin/python -m video_inbox_v2 doctor
 ```
 
-> **其他 Python 项目同样中招**：任何用 httpx 的 venv 都会失败（本机实测
-> MoneyPrinterTurbo / deepseek-web2api-free / luoke 三个项目均 ❌）。
-> 它们需各自做同样清理，或等 DSH 上游调整注入策略。
+### 影响范围：只有 DSH 内部，用户终端不受影响
+
+`[::1]` 是 **DSH 运行时注入给子进程**的，被注入的只有 DSH spawn 出来的一切；
+**用户自己终端里跑的程序不受影响**（实测对照）：
+
+| 环境 | `NO_PROXY` | httpx 结果 |
+|---|---|---|
+| 用户终端 | `...,127.*,localhost,<local>`（无 `[::1]`） | ✅ 正常 |
+| DSH 内部（bash 工具 / skill 脚本 / DSH 调起的进程） | `...,127.0.0.1,::1,[::1]` | ❌ InvalidURL |
+
+所以：
+
+- ✅ **本 skill 需要修复**——它由 DSH 调起，落在受影响的一侧
+- ❌ **独立项目不需要修复**——MoneyPrinterTurbo / deepseek-web2api-free / luoke
+  等在用户终端里运行，`NO_PROXY` 干净，httpx 正常（**已实测确认**）
+
+> ⚠️ 排查时注意：**不要用 DSH 的 bash 工具去测这些独立项目**——
+> 那样测出来必然是 ❌，但那是测试环境的 `[::1]`，不是项目本身的问题。
+> 正确做法是在你自己的终端里跑，或 `env -i` 隔离后测试。
+
+引入时间：`c62d6f3a44`（2026-09-01 11:01，proxy 重构为 util 库时加入 `[::1]`）。
 
 ## 验证
 

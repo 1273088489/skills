@@ -32,7 +32,8 @@ If `.venv` is missing (fresh clone — it is not versioned, being 451 MB), rebui
 from [references/wsl-runtime-bootstrap.md](references/wsl-runtime-bootstrap.md):
 three top-level packages (`faster-whisper`, `yt-dlp`, `static-ffmpeg`) plus the ASR
 model, which downloads itself on first use. That document also records the
-`NO_PROXY=[::1]` httpx failure that blocks the model download.
+DSH-injected `NO_PROXY=[::1]` that breaks httpx inside the harness (fixed in
+`config.py`).
 
 Read the JSON report, then summarize from `transcript.txt` or `article.txt`. The CLI does not write Obsidian notes.
 
