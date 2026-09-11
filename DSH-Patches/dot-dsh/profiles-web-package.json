@@ -9,6 +9,7 @@
     "@liustack/modlens": "3.26.1",
     "aegis": "git+https://github.com/GanyuanRan/Aegis.git#v2.9.9",
     "dsh-context": "0.49.1",
+    "dsh-mnemon": "^0.5.7",
     "dsh-remote-plugin": "0.6.24",
     "dshmarket": "1.45.1"
   },
@@ -25,7 +26,8 @@
         "aegis",
         "@dhicoc/dsh-reverse-skill",
         "dsh-context",
-        "dsh-remote-plugin"
+        "dsh-remote-plugin",
+        "dsh-mnemon"
       ]
     }
   }

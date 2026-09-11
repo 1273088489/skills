@@ -3,10 +3,10 @@ ui-onboarding:
 permission:
   defaultPreset: danger-full-access
 agent-presets:
-  default: code
+  default: ptc
 agent-default-model:
-provider: openrouter
-model: stealth/ox-alpha
+provider:
+model:
 llm-pi-ai:
   providers:
     nvidia:
@@ -67,6 +67,7 @@ llm-pi-ai:
             high: high
             xhigh: xhigh
             max: max
+      displayName: yyds gpt
     luna:
       apiKeyEnv: <MASKED>
       api: openai-responses
@@ -83,38 +84,86 @@ llm-pi-ai:
             xhigh: xhigh
             max: max
       displayName: yyds luna
-    wc-glm:
+    yydsgrok:
       apiKeyEnv: <MASKED>
       api: openai-responses
-      baseURL: https://image.123uq.com/v1
+      baseURL: https://www.yydsapi.uno/v1
       models:
-        - id: glm-5.2
-          name: glm-5.2
-        - id: glm-5.3
-          name: glm-5.3
+        - id: grok-4.6
+          name: Grok 4.6
+          input:
+            - text
+            - image
+          contextWindow: 200000
+        - id: grok-imagine-video-1.5
+          name: Grok Imagine Video 1.5
+    yydsglm:
+      apiKeyEnv: <MASKED>
+      api: openai-responses
+      baseURL: https://www.yydsapi.uno/v1
+      models:
         - id: glm-5.3-flash
           name: glm-5.3-flash
+          contextWindow: 1000000
           reasoningEfforts:
             low: low
             high: high
             max: max
-    wc-ds:
+        - id: deepseek-flash
+          name: deepseek-flash
+          contextWindow: 1000000
+          maxTokens: <MASKED>
+    cat:
       apiKeyEnv: <MASKED>
-      api: openai-responses
-      baseURL: https://api.123uq.com/v1
+      api: openai-completions
+      baseURL: https://aicat.api.sumnece.com/v1
       models:
         - id: deepseek-v4-flash
           name: deepseek-v4-flash
           contextWindow: 1000000
           maxTokens: <MASKED>
-        - id: deepseek-v4-flash-vision-exp
-          name: deepseek-v4-flash-vision-exp
+          reasoningEfforts:
+            low: low
+            high: high
+            max: max
+        - id: glm-5.3-flash
+          name: glm-5.3-flash
           contextWindow: 1000000
           maxTokens: <MASKED>
-        - id: deepseek-v4-pro
-          name: deepseek-v4-pro
+          reasoningEfforts:
+            low: low
+            high: high
+            max: max
+    newapi:
+      apiKeyEnv: <MASKED>
+      api: openai-responses
+      baseURL: http://localhost:3000/v1
+      models:
+        - id: glm-5.3-flash
+          contextWindow: 1000000
+        - id: gpt-5.6-luna
+        - id: gpt-5.6-sol
+        - id: gpt-5.6-terra
+        - id: gpt-image-2
+        - id: grok-4.6
+          contextWindow: 200000
+    d1:
+      apiKeyEnv: <MASKED>
+      api: openai-completions
+      baseURL: https://d1api.xin/v1
+      models:
+        - id: deepseek-v4.1-flash
+          name: deepseek-v4.1-flash
           contextWindow: 1000000
           maxTokens: <MASKED>
+          input:
+            - text
+            - image
+        - id: glm-5.3-flash
+          name: glm-5.3-flash
+          contextWindow: 1000000
+          maxTokens: <MASKED>
+
 web-search-deepseek:
   maxUses: 10
 pet:
@@ -144,3 +193,57 @@ task-board:
   announceToAgent: true
 dsh-context:
   defaultTrendMode: total
+subagent-model-selection:
+  enabled: true
+  allowedModels:
+    - provider: newapi
+      model: grok-4.6
+    - provider: newapi
+      model: gpt-5.6-terra
+    - provider: newapi
+      model: gpt-5.6-sol
+    - provider: newapi
+      model: gpt-5.6-luna
+    - provider: newapi
+      model: glm-5.3-flash
+    - provider: cat
+      model: glm-5.3-flash
+    - provider: cat
+      model: glm-5.3
+    - provider: cat
+      model: deepseek-v4-pro
+    - provider: cat
+      model: deepseek-v4-flash
+    - provider: yydsglm
+      model: glm-5.3-flash
+    - provider: yydsgrok
+      model: grok-4.6
+    - provider: luna
+      model: gpt-5.6-luna
+    - provider: yyds
+      model: gpt-5.6-terra
+    - provider: yyds
+      model: gpt-5.6-sol
+    - provider: yyds
+      model: gpt-5.5
+    - provider: deepseek-official
+      model: deepseek-v4-flash
+    - provider: deepseek-official
+      model: deepseek-v4-pro
+    - provider: deepseek-official
+      model: <MASKED>
+dsh-better-sidebar:
+  pluginSettings:
+    editor:
+      openWith:
+        sshHost: ""
+        customEditors: []
+        pinned:
+          - explorer
+  agentOpenTools: true
+mnemon-view-8887a1728307a1ff:
+  strategyTypeId: default-three-tier
+  entries:
+    include:mnemon-strategy-light-context:
+      enabled: true
+      config: {}
