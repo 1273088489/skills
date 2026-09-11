@@ -28,6 +28,12 @@ From `wsl_runtime`:
 .venv/bin/python -m video_inbox_v2 acquire '<url-or-share-text>'
 ```
 
+If `.venv` is missing (fresh clone — it is not versioned, being 451 MB), rebuild it
+from [references/wsl-runtime-bootstrap.md](references/wsl-runtime-bootstrap.md):
+three top-level packages (`faster-whisper`, `yt-dlp`, `static-ffmpeg`) plus the ASR
+model, which downloads itself on first use. That document also records the
+`NO_PROXY=[::1]` httpx failure that blocks the model download.
+
 Read the JSON report, then summarize from `transcript.txt` or `article.txt`. The CLI does not write Obsidian notes.
 
 ## Routing
