@@ -56,6 +56,10 @@ mkdir -p models cache temp
 
 实测耗时：建 venv < 1s，装依赖约 **26 秒**。
 
+> `step 4` 只验证环境与网络，**不会加载 ASR 模型**，因此它不会暴露
+> `NO_PROXY=[::1]` 那个坑——见下文「已知坑」。要确认 ASR 真的可用，
+> 需实际跑一次转写（或看「ASR 模型」章节的预下载命令是否成功）。
+
 ## 依赖清单
 
 ### 顶层（必须显式声明）
@@ -105,24 +109,47 @@ print('ok')
 "
 ```
 
-### ⚠️ 已知坑：`NO_PROXY` 含 `[::1]` 会让下载失败
+### ⚠️ 已知坑：DSH 注入的 `NO_PROXY=[::1]` 会让 httpx 全线失败
 
-若本机设了代理且 `NO_PROXY`/`no_proxy` 里带 `[::1]` 这种**带方括号的 IPv6 字面量**，
-httpx 会解析失败并抛：
+**这不是环境变量配错，是 DSH 的有意注入。** `packages/util/http-proxy` 会把
+`LOOPBACK_NO_PROXY = ['localhost', '127.0.0.1', '::1', '[::1]']` 合并进每个子进程的
+`NO_PROXY`。同时列出两种写法，是因为 **undici（Node 侧）匹配不了裸 `::1`**——
+源码注释：*"`::1` and `[::1]` are both listed because the resolved string is also handed to
+undici, whose matcher reads a bare `::1` as host `:` port `1`"*。
+
+但 **httpx（Python 侧）解析不了带方括号的 `[::1]`**：
 
 ```
 httpx.InvalidURL: Invalid port: ':1]'
 ```
 
-**这不是 skill 的 bug，是环境变量格式问题。** 下载模型时临时清掉该段即可：
+**影响面比「下载失败」严重得多**——实测确认：
+
+| 场景 | 结果 |
+|---|---|
+| 首次下载模型 | ❌ 失败 |
+| 模型**已缓存**后加载 | ❌ 同样失败 |
+| 设置 `HF_HUB_OFFLINE=1` | ❌ 同样失败 |
+| 任意 `http://` / `https://` 请求 | ❌ 解析阶段即抛，与目标站点无关 |
+
+即**只要进程读出 `NO_PROXY`（httpx 默认 `trust_env=True`），所有请求在解析阶段就炸**；
+`[::1]` 与任意代理变量（`HTTP_PROXY`/`HTTPS_PROXY`）同时存在即触发。
+所以 ASR 不是「偶尔下载失败」，而是**完全不可用**。
+
+**改 `~/.bashrc` 无效**——非交互 `bash -c` 不读它，且 `NO_PROXY` 由 DSH 在运行时注入子进程，
+不在任何 shell 配置文件里。本 skill 已在代码层规避：`video_inbox_v2/config.py` 顶部的
+`_sanitize_no_proxy()` 在导入时剔除 `[::1]`（保留裸 `::1`，对 undici 仍有效、对 httpx 无害）。
+
+手动临时规避（仅调试用）：
 
 ```bash
 NO_PROXY="127.0.0.1,localhost" no_proxy="127.0.0.1,localhost" \
-  .venv/bin/python -c "from faster_whisper import WhisperModel; \
-  WhisperModel('small', device='cpu', compute_type='int8', download_root='models')"
+  .venv/bin/python -m video_inbox_v2 doctor
 ```
 
-或从 `~/.bashrc` / `~/.profile` 的 `NO_PROXY` 中永久移除 `[::1]`（`::1` 不带方括号是安全的）。
+> **其他 Python 项目同样中招**：任何用 httpx 的 venv 都会失败（本机实测
+> MoneyPrinterTurbo / deepseek-web2api-free / luoke 三个项目均 ❌）。
+> 它们需各自做同样清理，或等 DSH 上游调整注入策略。
 
 ## 验证
 
@@ -156,11 +183,20 @@ cd ~/.dsh/skills/video-inbox/wsl_runtime
 | `vault_exists` / `inbox_exists` | 指向 `/mnt/d/Open-brain-obsidian`；为 `false` 时先确认 vault 已挂载 |
 | `net_bilibili` | **412 属正常**（B 站反爬），不影响 yt-dlp 走 API 取流 |
 
+`doctor` **不加载模型**，所以 `ok: true` 不等于 ASR 可用。补一条真实验证：
+
+```bash
+cd ~/.dsh/skills/video-inbox/wsl_runtime
+.venv/bin/python -c "from video_inbox_v2.asr import get_model; get_model('small'); print('ASR ok')"
+```
+
+输出 `ASR ok` 才算真正就绪。
+
 ## 故障排查
 
 | 症状 | 原因 | 处理 |
 |---|---|---|
-| `httpx.InvalidURL: Invalid port: ':1]'` | `NO_PROXY` 含 `[::1]` | 见上文，临时清空该段 |
+| `httpx.InvalidURL: Invalid port: ':1]'` | DSH 注入的 `NO_PROXY` 含 `[::1]` | 已在 `config.py` 自动规避；从旧版复制代码时见上文 |
 | `asr_model_cached: false` 且下载卡住 | HF 不可达 | 检查代理 / 网络；必要时设 `HF_ENDPOINT=https://hf-mirror.com` |
 | `vault_exists: false` | 未挂载 D 盘 | `ls /mnt/d/Open-brain-obsidian` 确认；**不得自行 mkdir 建空 vault** |
 | `ModuleNotFoundError: video_inbox_v2` | 不在 `wsl_runtime` 目录下执行 | `cd` 到 `wsl_runtime` 再跑（`config.py` 按相对路径定位） |

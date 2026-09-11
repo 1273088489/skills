@@ -3,6 +3,33 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+
+def _sanitize_no_proxy() -> None:
+    """Drop bracketed IPv6 literals from NO_PROXY / no_proxy.
+
+    The DSH harness merges ['localhost', '127.0.0.1', '::1', '[::1]'] into every
+    child's NO_PROXY (packages/util/http-proxy policy). It lists both spellings
+    because undici cannot match a bare '::1' -- but httpx, which faster-whisper
+    and huggingface_hub use underneath, cannot parse the bracketed '[::1]' at all:
+
+        httpx.InvalidURL: Invalid port: ':1]'
+
+    The failure happens on *every* model load, cached or not, offline or not, so
+    ASR is unusable until the entry is removed. Bare '::1' is harmless to httpx
+    and still bypasses the proxy for undici, so only the bracketed form is dropped.
+    """
+    for name in ("NO_PROXY", "no_proxy"):
+        raw = os.environ.get(name)
+        if not raw:
+            continue
+        kept = [e for e in raw.split(",") if e.strip() and e.strip() != "[::1]"]
+        value = ",".join(kept)
+        if value != raw:
+            os.environ[name] = value
+
+
+_sanitize_no_proxy()
+
 WSL_RUNTIME_DIR = Path(__file__).resolve().parents[1]
 SKILL_DIR = WSL_RUNTIME_DIR.parent
 CACHE_DIR = WSL_RUNTIME_DIR / "cache"
