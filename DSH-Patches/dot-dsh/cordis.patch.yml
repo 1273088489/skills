@@ -19,3 +19,38 @@
   disabled: true
 # (archive-manager is not installed and web-all no longer bundles it, so no
 # disable row is needed here; re-add one only if that plugin is installed.)
+# dsh-mnemon：关闭空闲检查点复审（idle checkpoint review）。
+# 默认 writebackMode=guided + idleReviewMs=30000 会在每次 turn 结束后 30 秒，
+# 自动 fork 一个继承完整上下文的子代理去复盘整段对话（源码 scheduleIdleReview）。
+# 实测本机 4 次触发共消耗 504 次工具调用、产出 0 条记忆，纯烧额度。
+#
+# 用 writebackMode: off 而非 lifecycleEnabled: false：
+#   - 两者都能拦下 scheduleIdleReview（源码 5077 行三条件任一不满足即 return）
+#   - 但 lifecycleEnabled: false 会在 preStep 提前 return（5020 行），
+#     连带关掉 USER.md/MEMORY.md 的每回合快照注入，记忆召回也没了
+#   - writebackMode: off 只去掉写回引导与自动记录，读路径与注入保持不变
+#
+# ⚠️ profile patch 是整行替换 config，不是深度合并 —— 必须写完整字段。
+- id: mnemon
+  config:
+    routingGuidance: true
+    lifecycleEnabled: true
+    recallMode: guided
+    writebackMode: off
+    idleReviewMs: 30000
+    tabEnabled: true
+    writeEnabled: true
+    remoteAccess: read-only
+    timeoutMs: 10000
+    defaultRecallLimit: 10
+    embedding:
+      enabled: false
+      endpoint: http://localhost:11434
+      model: nomic-embed-text
+    recallQuality:
+      policy: strict-v1
+      lowScoreThreshold: 0.25
+      highScoreThreshold: 0.6
+      candidateMultiplier: 3
+      maxMediumResults: 4
+      maxUnknownResults: 2

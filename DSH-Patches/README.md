@@ -60,6 +60,32 @@ Web profile 采用 **`dsh-mnemon ^0.5.7`** + 全局 `@mnemon-dev/mnemon` CLI `0.
 3. **pnpm `minimumReleaseAge` 会默认挡回 0.5.7**，需显式指定版本：
    `dsh plugin --profile web add dsh-mnemon@0.5.7`
 4. 数据根 `~/.mnemon/`（runtime / documents / data），**不在本包内**，需单独备份或用 Mnemon Pack 导出
+5. **必须关掉空闲检查点复审**（见下），否则会持续后台烧额度
+
+### dsh-mnemon 空闲复审：已在 profile patch 中关闭
+
+插件默认 `writebackMode: guided` + `idleReviewMs: 30000` 会在**每次 turn 结束后 30 秒**，
+自动 fork 一个继承完整上下文的子代理复盘整段对话（源码 `scheduleIdleReview`）。
+
+实测（本机 2026-09-11）：**4 次触发 = 504 次工具调用，产出 0 条记忆**，纯消耗 API 额度。
+长对话尤其严重——子代理 fork 时要把整段上下文重新读一遍。
+
+**关闭方式用 `writebackMode: off`，不要用 `lifecycleEnabled: false`**：
+
+| 开关 | 拦下空闲复审 | 保留记忆快照注入 |
+|---|---|---|
+| `writebackMode: off` | ✅ | ✅ **保留** |
+| `lifecycleEnabled: false` | ✅ | ❌ 连带关掉 |
+
+两者都能让 `scheduleIdleReview` 提前 return（源码 5077 行三条件任一不满足），
+但 `lifecycleEnabled: false` 还会在 `preStep` 提前 return（源码 5020 行），
+**连带停掉 USER.md / MEMORY.md 的每回合快照注入**——记忆召回一起没了。
+
+`writebackMode: off` 只去掉写回引导与自动记录，读路径与注入保持不变。
+事后要存记忆仍可手动让我调用 `mnemon_runtime_memory`。
+
+> ⚠️ profile patch **整行替换 config 而非深度合并**，改 `mnemon` 条目时必须写完整字段
+> （本包的 `dot-dsh/cordis.patch.yml` 已含完整版本，直接复制即可）。
 
 ## 恢复步骤（克隆 DSH 到 0.1.5-rc.1 后）
 
@@ -112,7 +138,8 @@ dsh plugin --profile web add dsh-mnemon@0.5.7   # 必须钉 0.5.7，见上
 
 ## 变更日志
 
-- **2026-09-11（本次）**：刷新 `settings.yaml.masked`（模型/provider 大改：新增 yydsgrok / yydsglm / cat / newapi / d1，移除 wc-glm / wc-ds，新增 subagent-model-selection）；`profiles-web-package.json` 加入 dsh-mnemon；新增「记忆插件 dsh-mnemon」章节与 0.5.7 钉版本说明；复核确认 liangshen preset 无需归档（插件自动同步）
+- **2026-09-11（本次）**：**关闭 dsh-mnemon 空闲复审**（`writebackMode: off`，实测 4 次触发 0 产出）；`cordis.patch.yml` 重新归档含该覆盖；README 新增关闭说明与两种开关的差异对比
+- **2026-09-11**：刷新 `settings.yaml.masked`（模型/provider 大改：新增 yydsgrok / yydsglm / cat / newapi / d1，移除 wc-glm / wc-ds，新增 subagent-model-selection）；`profiles-web-package.json` 加入 dsh-mnemon；新增「记忆插件 dsh-mnemon」章节与 0.5.7 钉版本说明；复核确认 liangshen preset 无需归档（插件自动同步）
 - **2026-09-11**：`fix(dsh-patches)`：0.1.5 persona 格式修复（P0）+ 清理冗余禁用项（P1）
 - **2026-09-10**：归档 0.1.5-rc.1 移植补丁 0004 与稳妥插件配置
 - **2026-09-05**：归档 subagent reasoning_effort 派发与 catalog 统一思考档位两个新 commit
