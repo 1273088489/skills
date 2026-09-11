@@ -1,5 +1,11 @@
 # Windows Runtime
 
+> **适用范围**：本文档描述 **Windows 原生运行时**（历史方案）。当前活动运行时是
+> `wsl_runtime`（见 `SKILL.md`），下载 / probe / ASR / 缓存都在 Linux 文件系统上，
+> 只有最终 Inbox Markdown 写到 Windows。本文档在 Windows 原生运行时被重新启用前，
+> 不构成现行规范；其中的路径（`%LOCALAPPDATA%\video-inbox`、`%VIDEO_INBOX_HOME%`、
+> `scripts\video-inbox.ps1`）当前均不存在。
+
 ## Layout
 
 Resolve the runtime root as `%VIDEO_INBOX_HOME%` when set, otherwise `%LOCALAPPDATA%\video-inbox`.
@@ -31,7 +37,16 @@ Never call WSL, Bash, `/mnt/*`, or Linux executables.
 
 ## Vision bridge (Stage 3)
 
-Frame OCR uses the `deepseek-vision` skill at `%USERPROFILE%\.codex\skills\deepseek-vision` through `node`; it calls an external vision model (default `glm-4.6v-flash`) and requires the `ZHIPU_API_KEY` environment variable (optional: `VISION_MODEL`, `VISION_BASE_URL`). Configure it once with `node "%USERPROFILE%\.codex\skills\deepseek-vision\scripts\vision.js" --setup`. If it is unconfigured, record frames as unavailable instead of fabricating OCR.
+Frame OCR uses the `deepseek-vision` skill through `node`; it calls an external vision model (default `glm-4.6v-flash`) and requires the `ZHIPU_API_KEY` environment variable (optional: `VISION_MODEL`, `VISION_BASE_URL`).
+
+Resolve the skill directory by **probing in this order** and using the first that exists (do not hardcode a path that may not exist on this host):
+
+1. `~/.dsh/skills/deepseek-vision` (active WSL runtime — the current default; run `node ~/.dsh/skills/deepseek-vision/scripts/vision.js`)
+2. `%USERPROFILE%\.codex\skills\deepseek-vision` (legacy Windows copy; `vision.js` is byte-identical, but its `SKILL.md` may lag)
+
+Configure with `node <resolved-skill-dir>/scripts/vision.js --setup` and verify with `--check`.
+
+If the skill is unconfigured or the image cannot be read, record frames as unavailable instead of fabricating OCR.
 
 ## Process rules
 

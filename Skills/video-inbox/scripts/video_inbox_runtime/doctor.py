@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import socket
 import sys
@@ -24,6 +25,8 @@ class DoctorReport:
     inbox: str = "missing"
     kimi_daemon: str = "unreachable"
     issues: list[str] = field(default_factory=list)
+    stage3: dict[str, str] = field(default_factory=dict)
+    stage3_hints: list[str] = field(default_factory=list)
 
 
 def _kimi_reachable(timeout: float = 2.0) -> bool:
@@ -85,6 +88,24 @@ def run_doctor(paths: RuntimePaths) -> DoctorReport:
     if kimi == "unreachable":
         issues.append("Kimi WebBridge daemon 未运行或不可达（仅 Stage 2 需要）")
 
+    # Stage 3 视觉桥（deepseek-vision）：仅提示，不计入 ok（ok 保持 Stage-1 就绪语义）
+    stage3: dict[str, str] = {}
+    stage3_hints: list[str] = []
+    node_path = shutil.which("node")
+    stage3["node"] = node_path or "missing"
+    if not node_path:
+        stage3_hints.append("node 未找到（仅 Stage 3 视觉桥需要）")
+    vision_js = Path.home() / ".codex" / "skills" / "deepseek-vision" / "scripts" / "vision.js"
+    if vision_js.is_file():
+        stage3["vision_bridge"] = str(vision_js)
+    else:
+        stage3["vision_bridge"] = "missing"
+        stage3_hints.append(f"deepseek-vision/vision.js 未找到（仅 Stage 3 需要）：{vision_js}")
+    zhipu_set = bool(os.environ.get("ZHIPU_API_KEY"))
+    stage3["zhipu_api_key"] = "set" if zhipu_set else "unset"
+    if not zhipu_set:
+        stage3_hints.append("ZHIPU_API_KEY 未设置（仅 Stage 3 视觉桥需要）")
+
     uv_path = shutil.which("uv")
     if not uv_path:
         user_uv = Path.home() / ".local" / "bin" / "uv.exe"
@@ -102,6 +123,8 @@ def run_doctor(paths: RuntimePaths) -> DoctorReport:
         inbox=inbox,
         kimi_daemon=kimi,
         issues=issues,
+        stage3=stage3,
+        stage3_hints=stage3_hints,
     )
     return report
 
@@ -119,11 +142,18 @@ def report_to_text(report: DoctorReport) -> str:
         f"Vault: {report.vault}",
         f"Inbox: {report.inbox}",
         f"Kimi WebBridge: {report.kimi_daemon}",
+        f"Stage3 node: {report.stage3.get('node', 'n/a')}",
+        f"Stage3 vision bridge: {report.stage3.get('vision_bridge', 'n/a')}",
+        f"Stage3 ZHIPU_API_KEY: {report.stage3.get('zhipu_api_key', 'n/a')}",
     ]
     if report.issues:
         lines.append("")
         lines.append("发现的问题：")
         lines.extend(f"- {issue}" for issue in report.issues)
+    if report.stage3_hints:
+        lines.append("")
+        lines.append("Stage 3 提示（不影响就绪判定）：")
+        lines.extend(f"- {hint}" for hint in report.stage3_hints)
     return "\n".join(lines)
 
 

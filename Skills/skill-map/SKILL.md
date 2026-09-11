@@ -89,7 +89,7 @@ Aegis 家族另有：定目标边界 `goal-framing` · 升级方法包 `update-a
 
 ## 9. 浏览器 · 自动化 · 视觉
 
-用户真实浏览器（带登录态）`kimi-webbridge` · Playwright/桌面 GUI 自动化 `browser-automation` · 交互式配置向导 `wizard` · 纯文本模型看图 `deepseek-vision`
+用户真实浏览器（带登录态）`kimi-webbridge` · Playwright/桌面 GUI 自动化 `browser-automation` · 交互式配置向导 `wizard` · 原生读图不可用时的兜底 OCR/版面解析 `deepseek-vision`
 
 ## 10. 沟通风格 · 追问
 

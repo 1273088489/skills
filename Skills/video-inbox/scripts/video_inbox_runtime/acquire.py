@@ -152,7 +152,11 @@ def fetch_subtitle(paths: RuntimePaths, manifest: Manifest, metadata: dict[str, 
     subtitle_dir = cache_dir / "subtitles"
     subtitle_dir.mkdir(parents=True, exist_ok=True)
     for language, source, automatic in candidates:
-        for existing in subtitle_dir.glob(f"*{language}*.*"):
+        # 缓存命中：先精确匹配 subtitle.<lang>.*，再做大小写不敏感的包含匹配，
+        # 避免语言代码大小写/变体漂移导致缓存永不命中而重复下载。
+        exact = sorted(subtitle_dir.glob(f"subtitle.{language}.*"))
+        fuzzy = [p for p in sorted(subtitle_dir.glob("subtitle.*")) if language.lower() in p.name.lower()]
+        for existing in dict.fromkeys(exact + fuzzy):
             try:
                 segments = parse_subtitle(existing)
                 if segments:
@@ -167,7 +171,8 @@ def fetch_subtitle(paths: RuntimePaths, manifest: Manifest, metadata: dict[str, 
         try:
             result = run_command(args, timeout=90)
             files = sorted(subtitle_dir.glob("subtitle.*"), key=lambda item: item.stat().st_mtime, reverse=True)
-            for file in files:
+            preferred = [f for f in files if language.lower() in f.name.lower()] or files
+            for file in preferred:
                 segments = parse_subtitle(file)
                 if segments:
                     add_attempt(manifest, "subtitle", source, "success", details={"language": language, "duration_seconds": result.duration_seconds})

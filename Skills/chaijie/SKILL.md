@@ -18,7 +18,7 @@ Turn a large objective into an execution system that another agent can resume wi
    - Identify the end-to-end path and every missing connection. Do not equate component existence with working connectivity.
 
 3. Map change fronts and owners.
-   - Group work by contract, data ownership, runtime boundary, user workflow, infrastructure, and verification.
+   - Group work by contract, data ownership, runtime boundary, user workflow, infrastructure, and verification. Default sequencing across these fronts is defined in [decomposition-playbook.md](references/decomposition-playbook.md) §3.
    - Give each task one implementation owner. Add supporting roles only when a distinct specialty must review or contribute.
    - Discover owners from repository rules or an available role catalog. If none exists, state the required capability and mark assignment unresolved; never invent a role or agent as if it exists.
    - Keep contract publication ahead of consumers; keep release evidence after all production behavior.

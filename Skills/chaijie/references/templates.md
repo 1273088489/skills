@@ -22,6 +22,12 @@ Responsibility matrix: <link>
 ## Gates
 1. <Merged prerequisites and parallel rules>
 
+Per-task gate checks (structure per decomposition-playbook.md §5):
+
+| Task | Entry checks | Artifacts | Stop conditions | Human approvals | Post-merge |
+|---|---|---|---|---|---|
+| ... | ... | ... | ... | ... | ... |
+
 ## Global stop conditions
 <Secrets, cost, data, production, destructive actions, contract drift>
 ```
@@ -62,7 +68,9 @@ Forbidden: <cross-owner, secret, destructive, or out-of-scope actions>
 <Record, human review, commit, synchronize, merge, post-merge checks>
 
 ## Execution record
-<Structured handoff fields>
+<Record the 7 structured handoff fields defined in decomposition-playbook.md §6:
+roles_used / scope_completed / files_changed / contracts_changed /
+verification_and_results / known_risks / next_owner>
 ```
 
 ## Execution runbook
@@ -75,6 +83,10 @@ Forbidden: <cross-owner, secret, destructive, or out-of-scope actions>
 5. Append the structured execution record and wait for human review.
 6. After approval: commit only task files, synchronize the latest base, resolve or stop on conflicts, rerun checks, merge, and verify the merged branch.
 7. Stop on missing gates, destructive actions, secrets, paid calls, production changes, required skips, or unexplained contract drift.
+
+| Task | Branch | Commit | Merge |
+|---|---|---|---|
+| ... | ... | ... | ... |
 ```
 
 ## Responsibility matrix

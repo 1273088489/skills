@@ -1,0 +1,7 @@
+# Runtime state — never commit (940MB of venv + Whisper models + cache)
+.venv/
+models/
+cache/
+temp/
+__pycache__/
+*.pyc
