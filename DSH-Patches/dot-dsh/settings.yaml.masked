@@ -14,19 +14,19 @@ llm-pi-ai:
         - id: minimaxai/minimax-m3
           name: MiniMax-M3
           contextWindow: 1000000
-          maxTokens: <MASKED>
+          maxTokens: 16384
         - id: moonshotai/kimi-k2.6
           name: Kimi K2.6
           contextWindow: 262144
-          maxTokens: <MASKED>
+          maxTokens: 262144
         - id: openai/gpt-oss-120b
           name: GPT-OSS-120B
           contextWindow: 128000
-          maxTokens: <MASKED>
+          maxTokens: 8192
         - id: z-ai/glm-5.2
           name: GLM-5.2
           contextWindow: 1000000
-          maxTokens: <MASKED>
+          maxTokens: 131072
       apiKeyEnv: <MASKED>
     wangchuan:
       apiKeyEnv: <MASKED>
@@ -109,10 +109,10 @@ llm-pi-ai:
             low: low
             high: high
             max: max
-        - id: deepseek-flash
-          name: deepseek-flash
+        - id: deepseek-v4-flash
+          name: deepseek-v4-flash
           contextWindow: 1000000
-          maxTokens: <MASKED>
+          maxTokens: 330000
     cat:
       apiKeyEnv: <MASKED>
       api: openai-completions
@@ -121,19 +121,25 @@ llm-pi-ai:
         - id: deepseek-v4-flash
           name: deepseek-v4-flash
           contextWindow: 1000000
-          maxTokens: <MASKED>
+          maxTokens: 372000
           reasoningEfforts:
             low: low
             high: high
             max: max
+          input:
+            - text
+            - image
         - id: glm-5.3-flash
           name: glm-5.3-flash
           contextWindow: 1000000
-          maxTokens: <MASKED>
+          maxTokens: 372000
           reasoningEfforts:
             low: low
             high: high
             max: max
+          input:
+            - text
+            - image
     newapi:
       apiKeyEnv: <MASKED>
       api: openai-responses
@@ -155,14 +161,14 @@ llm-pi-ai:
         - id: deepseek-v4.1-flash
           name: deepseek-v4.1-flash
           contextWindow: 1000000
-          maxTokens: <MASKED>
+          maxTokens: 350000
           input:
             - text
             - image
         - id: glm-5.3-flash
           name: glm-5.3-flash
           contextWindow: 1000000
-          maxTokens: <MASKED>
+          maxTokens: 320000
 
 web-search-deepseek:
   maxUses: 10
@@ -231,7 +237,7 @@ subagent-model-selection:
     - provider: deepseek-official
       model: deepseek-v4-pro
     - provider: deepseek-official
-      model: <MASKED>
+      model: deepseek-v4-flash-vision-exp
 dsh-better-sidebar:
   pluginSettings:
     editor:

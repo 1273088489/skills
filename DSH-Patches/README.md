@@ -2,7 +2,7 @@
 
 > 本目录是 DSH 定制改动的**权威存档**，随 GitHub 仓库 `1273088489/skills` 同步（与 Skills/ 平级）。
 > 维护由 skill **`dsh-patch-archive`** 指导执行（"保存/更新 DSH 修改"即触发）。
-> 生成时间：2026-09-11 · 已验证：所有 preset 通过 DSH 0.1.5-rc.1 loader 校验（ALL PRESETS HEALTHY）。
+> 生成时间：2026-09-17 · 已验证：0004 在 `dsh-v0.1.5-rc.1` 上 `git am` 成功且 tree 与本地一致；dot-dsh 配置与实时文件逐项 diff 一致。
 
 ## 包结构
 
@@ -14,8 +14,9 @@
 | `dot-dsh/cordis.patch.yml` | Web profile 补丁层（密钥已脱敏；含稳妥禁用项） | 复制回 `~/.dsh/profiles/web/` 后填回密钥 |
 | `dot-dsh/profiles-web-patches-liangshen.patch` | **P0 修复**：pnpm patch，修 `@linxin666/dsh-liangshen` 自带 preset 的旧 persona 格式 | 放到 `~/.dsh/profiles/web/patches/`，并在 pnpm-workspace.yaml 登记 patchedDependencies |
 | `dot-dsh/profiles-web-package.json` | Web profile 插件版本钉（dsh-web-all 0.3.20、**dsh-mnemon ^0.5.7** 等） | 对照 `~/.dsh/profiles/web/package.json` |
-| `dot-dsh/settings.yaml.masked` | ~/.dsh/settings.yaml 备份（**20 个敏感字段已脱敏为 `<MASKED>`**） | 手动对照，填回密钥 |
+| `dot-dsh/settings.yaml.masked` | ~/.dsh/settings.yaml 备份（**10 个敏感字段已脱敏为 `<MASKED>`**：9 个 `apiKeyEnv` + describe-image 的 `apiKey`） | 手动对照，填回密钥 |
 | `dot-dsh/skills-subagent-effort-grading/` | 难度分级 skill 模板 | 复制回 ~/.dsh/skills/ |
+| `dot-dsh/skills-dsh-patch-archive/` | **本维护 skill 自身的备份**（skill 闭环：~/.dsh 被删也能从包里恢复） | 复制回 ~/.dsh/skills/ |
 
 ## ⚠️ liangshen preset 为什么不单独归档
 
@@ -98,6 +99,11 @@ git am ~/projects/skills/DSH-Patches/commits/0004-port-0.1.5-rc.1-unified-ladder
 # preset 修复（0.1.5 必需）
 cp ~/projects/skills/DSH-Patches/presets/code.agent.cordis.yml ~/.dsh/.agent-presets/code/agent.cordis.yml
 
+# 自定义 skill（含本维护 skill 自身的闭环备份）
+mkdir -p ~/.dsh/skills
+cp -r ~/projects/skills/DSH-Patches/dot-dsh/skills-subagent-effort-grading ~/.dsh/skills/subagent-effort-grading
+cp -r ~/projects/skills/DSH-Patches/dot-dsh/skills-dsh-patch-archive ~/.dsh/skills/dsh-patch-archive
+
 # 记忆插件 CLI（必须先装二进制）
 npm install --global @mnemon-dev/mnemon@latest && mnemon --version
 
@@ -112,16 +118,17 @@ cd ~/.dsh/profiles/web && pnpm install
 dsh plugin --profile web add dsh-mnemon@0.5.7   # 必须钉 0.5.7，见上
 ```
 
-## 验证记录（2026-09-11）
+## 验证记录（2026-09-11，2026-09-17 复验）
 
-在临时 worktree 上实测，恢复链路可用：
+在临时 worktree 上实测，恢复链路可用（2026-09-17 复验结论相同，tree 仍为 `f438ba61`）：
 
 | 验证项 | 方法 | 结果 |
 |---|---|---|
 | commit 0004 可应用 | `git worktree add <tmp> dsh-v0.1.5-rc.1` → `git am 0004` | ✅ 成功 |
 | **内容精确性** | 应用后 `HEAD^{tree}` 与实时 DSH `HEAD^{tree}` 对比 | ✅ **`f438ba61` 完全相同** |
 | patch-id | `git show HEAD \| git patch-id --stable` | ✅ `5cf3a9e3` 两侧一致 |
-| patch 可重复应用 | `git apply --check` | ✅ 通过 |
+| patch 可重复应用 | `git apply --check`（对已应用的工作树为预期失败，属正常） | ✅ 通过（在干净 worktree 上验证） |
+| 配置类一致性 | `dot-dsh/*` 与 ~/.dsh 实时文件 `diff -r` | ✅ 逐项一致（2026-09-17） |
 | preset / pnpm patch | 与 `~/.dsh` 实时文件 `diff` | ✅ 逐字节一致 |
 | 脱敏完整性 | grep 密钥模式 | ✅ 无残留 |
 
@@ -136,9 +143,23 @@ dsh plugin --profile web add dsh-mnemon@0.5.7   # 必须钉 0.5.7，见上
 
 由 `dsh-patch-archive` skill 执行：盘点 DSH 仓库（`git log origin/master..HEAD` + `git status`）→ 导出 commit/worktree patch → 脱敏复制配置 → 刷新本 README → 在目标 tag 临时 worktree 验证可应用 → commit 到本仓库（**push 需用户确认**）。
 
+## 本次盘点结论（2026-09-17）
+
+对 DSH 仓库与 ~/.dsh 逐项比对后，**本轮无新增 commit、无未提交工作区改动**：
+
+- DSH 仓库 `/home/angel/deepseek-harness`：`git status --short` 干净；仅领先上游 1 个提交 `d53ccc0954`（即已归档的 0004）
+- `origin/master` 已前进到 `aa8262ec09`（比 tag `dsh-v0.1.5-rc.1` 多 9 个 docs/README 类提交）；**本地 0004 的干净重建基线仍是 `dsh-v0.1.5-rc.1`**
+- 0004 可应用性复验：在 `dsh-v0.1.5-rc.1` 临时 worktree 上 `git am` 成功，`HEAD^{tree} = f438ba61` 与本地 DSH HEAD 一致，patch-id `5cf3a9e3` 相同
+- `dot-dsh/cordis.patch.yml`、`dot-dsh/profiles-web-package.json`、`dot-dsh/profiles-web-patches-liangshen.patch`、`presets/code.agent.cordis.yml` 与 ~/.dsh 实时文件**逐字节一致**（仅 tavily key 按设计保持 `REPLACE_ME` 脱敏）
+- `settings.yaml.masked` 已刷新：yydsglm 模型 id `deepseek-flash` → `deepseek-v4-flash`；cat 两个模型补 `input: [text, image]`；subagent-model-selection 末条 `deepseek-v4-flash-vision-exp` 不再被误脱敏
+- **新增归档**：`dot-dsh/skills-dsh-patch-archive/`（补齐 skill 闭环这一处缺口）
+- ~/.dsh/skills 与 Skills 仓库同名 skill 内容一致（`video-inbox/wsl_runtime` 下的 .venv/cache/models 为运行态，不入库）
+- 运行态快照：DSH `0.1.5-rc.1`、mnemon CLI `0.2.8`、`dsh-mnemon` 实装 `0.5.7`、`@linxin666/dsh-liangshen` 实装 `0.3.20`（pnpm patch 生效：`prefix:` 已就位）
+
 ## 变更日志
 
-- **2026-09-11（本次）**：**关闭 dsh-mnemon 空闲复审**（`writebackMode: off`，实测 4 次触发 0 产出）；`cordis.patch.yml` 重新归档含该覆盖；README 新增关闭说明与两种开关的差异对比
+- **2026-09-17（本次）**：全量盘点（无新 commit / 无工作区改动）；复验 0004 在 `dsh-v0.1.5-rc.1` 可 `git am` 且 tree 一致；刷新 `settings.yaml.masked`（10 个字段脱敏，修正 provider 模型漂移）；补齐 `dot-dsh/skills-dsh-patch-archive/`；README 记录本轮结论
+- **2026-09-11**：**关闭 dsh-mnemon 空闲复审**（`writebackMode: off`，实测 4 次触发 0 产出）；`cordis.patch.yml` 重新归档含该覆盖；README 新增关闭说明与两种开关的差异对比
 - **2026-09-11**：刷新 `settings.yaml.masked`（模型/provider 大改：新增 yydsgrok / yydsglm / cat / newapi / d1，移除 wc-glm / wc-ds，新增 subagent-model-selection）；`profiles-web-package.json` 加入 dsh-mnemon；新增「记忆插件 dsh-mnemon」章节与 0.5.7 钉版本说明；复核确认 liangshen preset 无需归档（插件自动同步）
 - **2026-09-11**：`fix(dsh-patches)`：0.1.5 persona 格式修复（P0）+ 清理冗余禁用项（P1）
 - **2026-09-10**：归档 0.1.5-rc.1 移植补丁 0004 与稳妥插件配置
