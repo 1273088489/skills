@@ -1,0 +1,37 @@
+diff --git a/apps/cli/src/profile-boot.ts b/apps/cli/src/profile-boot.ts
+index ededd48..2ca2e23 100644
+--- a/apps/cli/src/profile-boot.ts
++++ b/apps/cli/src/profile-boot.ts
+@@ -260,7 +260,15 @@ export async function runProfile(options: RunProfileOptions): Promise<{ ctx: Con
+   )
+ 
+   const packaged = (process as NodeJS.Process & { pkg?: unknown }).pkg !== undefined
+-  const resolutionMode = packaged ? 'runtime' : options.resolutionMode ?? 'runtime'
++  // The tsx source launcher projects workspace specifiers to `src` (its tsconfig
++  // paths reach workspace importers), while `runtime` resolution mounts plugin
++  // entries from built `lib/` — one package evaluated twice, so module-private
++  // symbols (the tool scheduler key) mismatch and every tool call fails with
++  // "Cannot read properties of undefined (reading 'prepare')". Disk links keep
++  // the whole graph on one plane for source launches; built and pkg launches
++  // run `lib/` throughout and keep runtime.
++  const sourceLaunch = import.meta.url.endsWith('.ts')
++  const resolutionMode = packaged ? 'runtime' : options.resolutionMode ?? (sourceLaunch ? 'link' : 'runtime')
+   const app: { current?: Context } = {}
+   let disposal: Promise<void> | undefined
+   const dispose = (): Promise<void> => disposal ??= (async () => {
+diff --git a/apps/cli/tests/resolved-profile-boot.spec.ts b/apps/cli/tests/resolved-profile-boot.spec.ts
+index e968f91..ef0312b 100644
+--- a/apps/cli/tests/resolved-profile-boot.spec.ts
++++ b/apps/cli/tests/resolved-profile-boot.spec.ts
+@@ -91,7 +91,10 @@ describe('runProfile with an application-owned profile', () => {
+   })
+ 
+   it.each([
+-    { selection: 'default', options: {}, mode: 'runtime' },
++    // The default follows the launch plane: this spec imports the source .ts,
++    // so runProfile sees a source launch and resolves through disk links;
++    // built (.js) and pkg launches keep 'runtime'.
++    { selection: 'default', options: {}, mode: 'link' },
+     { selection: 'link', options: { resolutionMode: 'link' }, mode: 'link' },
+     { selection: 'dual', options: { resolutionMode: 'dual' }, mode: 'dual' },
+     { selection: 'runtime', options: { resolutionMode: 'runtime' }, mode: 'runtime' },

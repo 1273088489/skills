@@ -1,0 +1,3 @@
+name: Code 模式
+description: 旧会话兼容别名。DSH 已将 code 预设更名为 ptc（PTC 模式）；本目录让仍记录 agentPreset=code 的会话能恢复。
+order: 5

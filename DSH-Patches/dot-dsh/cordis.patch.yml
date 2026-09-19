@@ -1,56 +1,75 @@
 # Your patch layer for this dsh profile, applied after every bundle layer:
 # a top-level YAML array of loader patch entries (id-targeted config
 # overrides, disables, and insert lists; `!!js` expressions allowed).
+#
+# ---------------------------------------------------------------------------
+# @linxin666/dsh-web-all 全家桶：按需禁用清单（2026-09-19 配置）
+# ---------------------------------------------------------------------------
+# 保留并启用（10）：web-ui-settings / web-ui-plugin-manager / web-ui-market /
+#   web-ui-task-board / web-ui-git-graph / web-ui-model-capabilities /
+#   web-ui-remote-web-ui / web-ui-usage / web-ui-session-archive /
+#   web-ui-preset-center
+# 以下条目禁用其余 10 个。改回启用：把对应行的 disabled 改成 false（或在
+# 设置 → 插件 → 插件管理 里逐行开关，管理器会覆写本层）。
+# 注意：web-ui-compat 是聚合包的故障隔离壳，属于锁定行，不要禁用。
+# ---------------------------------------------------------------------------
+
+# —— 已由聚合包出厂默认关闭的 5 行（此处显式重申，便于统一查看）——
+- id: web-ui-ssh
+  disabled: true
+- id: web-ui-describe-image
+  disabled: true
+- id: web-ui-liangshen
+  disabled: true
+- id: web-ui-skill-explorer
+  disabled: true
+- id: web-ui-doctor
+  disabled: true
+
+# —— 本次按需额外关闭的 5 行 ——
+- id: web-ui-pet          # 桌面宠物（15.4 MB，不想要）
+  disabled: true
+- id: web-ui-i18n         # 俄语语言包（用不上）
+  disabled: true
+- id: web-ui-skin-center  # 皮肤中心（用官方默认外观）
+  disabled: true
+- id: web-ui-community-plugins  # 社区插件索引数据源（无 UI，仅市场数据）
+  disabled: true
+- id: web-ui-better-sidebar     # VSCode 式右侧面板（外部包，14.3 MB）
+  disabled: true
+
+
+# ---------------------------------------------------------------------------
+# 实验性 Inspector（Chrome DevTools 调试运行中的 DSH Host / Client）
+# ---------------------------------------------------------------------------
+# 用途：用 Chrome DevTools 连接，可下断点、看 Host Console、采集 fetch
+#   请求/响应、检查 Cordis 插件树。仅供开发调试，不改变模型请求。
+# 来源：仓库内已构建产物 packages/experimental/inspector/lib/index.js
+#   （绝对路径；该包不在 npm 依赖里，属于源码 checkout 自带）
+# 端点：仅监听 127.0.0.1:9230（端口占用时自动向上递增）
+# 回滚：删除下面这段 insert 即可（或注释掉）
 - insert:
-    - id: mcp-tavily
-      name: '@deepseek-ai/dsh-mcp-client'
+    - id: experimental-inspector
+      name: '/home/angel/projects/deepseek-harness/packages/experimental/inspector/lib/index.js'
+
+
+# ---------------------------------------------------------------------------
+# Browser Use（Playwright）—— 操作 Windows 上的 Edge
+# ---------------------------------------------------------------------------
+# 形态：attach 模式，接管带调试端口的 Windows Edge（独立自动化 profile）
+# 端点：http://127.0.0.1:9333（镜像网络模式下 WSL 可直连 Windows localhost）
+# 前置：
+#   1) 启动自动化 Edge：
+#      powershell -c "Start-Process 'C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe' -ArgumentList '--remote-debugging-port=9333','--remote-allow-origins=*','--user-data-dir=C:\Users\12730\EdgeAutoProfile'"
+#   2) 该 Edge 必须处于运行状态，attach 才能成功
+# 说明：browser-use-runtime 是纯库（非插件），由 playwright 提供方内部导入，
+#   不单独挂载。挂载顺序：服务 → 提供方。
+# 回滚：删除下面这段 insert 即可。
+- insert:
+    - id: browser-use
+      name: '/home/angel/projects/deepseek-harness/packages/browser-use/browser-use/lib/index.js'
+    - id: browser-use-playwright
+      name: '/home/angel/projects/deepseek-harness/packages/experimental/browser-use-playwright-mcp/lib/index.js'
       config:
-        transport: streamable-http
-        serverName: tavily
-        url: 'https://mcp.tavily.com/mcp/?tavilyApiKey=REPLACE_ME'
-        headers: {}
-        toolCallTimeoutMs: 60000
-        failOnStartupError: false
-# Conservative boot for DSH 0.1.5-rc.1: these two have no 0.1.5-aligned
-# release (panel/Agent API risk). Re-enable after they publish a matching build.
-- id: ui-chat-recovery
-  disabled: true
-- id: desktop-launcher
-  disabled: true
-# (archive-manager is not installed and web-all no longer bundles it, so no
-# disable row is needed here; re-add one only if that plugin is installed.)
-# dsh-mnemon：关闭空闲检查点复审（idle checkpoint review）。
-# 默认 writebackMode=guided + idleReviewMs=30000 会在每次 turn 结束后 30 秒，
-# 自动 fork 一个继承完整上下文的子代理去复盘整段对话（源码 scheduleIdleReview）。
-# 实测本机 4 次触发共消耗 504 次工具调用、产出 0 条记忆，纯烧额度。
-#
-# 用 writebackMode: off 而非 lifecycleEnabled: false：
-#   - 两者都能拦下 scheduleIdleReview（源码 5077 行三条件任一不满足即 return）
-#   - 但 lifecycleEnabled: false 会在 preStep 提前 return（5020 行），
-#     连带关掉 USER.md/MEMORY.md 的每回合快照注入，记忆召回也没了
-#   - writebackMode: off 只去掉写回引导与自动记录，读路径与注入保持不变
-#
-# ⚠️ profile patch 是整行替换 config，不是深度合并 —— 必须写完整字段。
-- id: mnemon
-  config:
-    routingGuidance: true
-    lifecycleEnabled: true
-    recallMode: guided
-    writebackMode: off
-    idleReviewMs: 30000
-    tabEnabled: true
-    writeEnabled: true
-    remoteAccess: read-only
-    timeoutMs: 10000
-    defaultRecallLimit: 10
-    embedding:
-      enabled: false
-      endpoint: http://localhost:11434
-      model: nomic-embed-text
-    recallQuality:
-      policy: strict-v1
-      lowScoreThreshold: 0.25
-      highScoreThreshold: 0.6
-      candidateMultiplier: 3
-      maxMediumResults: 4
-      maxUnknownResults: 2
+        mode: attach
+        endpoint: 'http://127.0.0.1:9333'

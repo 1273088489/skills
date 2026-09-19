@@ -118,28 +118,24 @@ llm-pi-ai:
       api: openai-completions
       baseURL: https://aicat.api.sumnece.com/v1
       models:
-        - id: deepseek-v4-flash
-          name: deepseek-v4-flash
-          contextWindow: 1000000
-          maxTokens: 372000
-          reasoningEfforts:
-            low: low
-            high: high
-            max: max
-          input:
-            - text
-            - image
         - id: glm-5.3-flash
           name: glm-5.3-flash
           contextWindow: 1000000
           maxTokens: 372000
+          input:
+            - text
+            - image
           reasoningEfforts:
             low: low
             high: high
             max: max
+        - id: deepseek-v4.1-flash
+          name: deepseek-v4.1-flash
+          contextWindow: 1000000
           input:
             - text
             - image
+          maxTokens: 372000
     newapi:
       apiKeyEnv: <MASKED>
       api: openai-responses
@@ -165,10 +161,21 @@ llm-pi-ai:
           input:
             - text
             - image
+          reasoningEfforts:
+            low: low
+            high: high
+            max: max
         - id: glm-5.3-flash
           name: glm-5.3-flash
           contextWindow: 1000000
           maxTokens: 320000
+          input:
+            - text
+            - image
+          reasoningEfforts:
+            low: low
+            medium: medium
+            high: high
 
 web-search-deepseek:
   maxUses: 10
@@ -183,6 +190,8 @@ ui-theme:
   preference: dark
 skin-wallpaper:
   enabled: false
+  dim: 40
+  wallpaperOpacity: 100
 skin-background:
   backgroundOpacity: 0
   backgroundBlurEmpty: 0
@@ -247,9 +256,27 @@ dsh-better-sidebar:
         pinned:
           - explorer
   agentOpenTools: true
-mnemon-view-8887a1728307a1ff:
-  strategyTypeId: default-three-tier
-  entries:
-    include:mnemon-strategy-light-context:
-      enabled: true
-      config: {}
+# ---------------------------------------------------------------------------
+# dsh-mnemon：关闭「空闲 30 秒后自动写入记忆」的后台复盘
+# ---------------------------------------------------------------------------
+# idleReview.enabled=false 只停用这一条自动维护流程：
+#   - 已完成回合满足活动门槛后，不再等待 idleReviewMs（默认 30000ms）
+#     派发后台子 Agent 去自动整理/写入记忆；
+#   - 显式写入、引导式写回 cue、召回、记忆条、存入记忆按钮全部保留。
+# 想恢复默认：删除下面这行 enabled: false（或整段 mnemon）。
+# 想连「引导模型主动写记忆的 cue」也一起关掉，另加：writebackMode: off
+# ---------------------------------------------------------------------------
+mnemon:
+  idleReview:
+    enabled: false
+
+# ---------------------------------------------------------------------------
+# dsh-free-search：web_search 引擎选择（默认 bing；此处改为 tavily 账号档）
+# API key 存于 ~/.dsh/.credentials.yaml 的 TAVILY_API_KEY（凭据中心优先级最高）。
+# 改回免费引擎：把 provider 改成 bing / ddg，或在设置页切换。
+# ---------------------------------------------------------------------------
+free-search:
+  provider: tavily
+  cache: true
+  cacheTtl: 5
+  lang: zh

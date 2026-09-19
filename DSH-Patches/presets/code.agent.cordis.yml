@@ -226,19 +226,23 @@
         backgroundMode: one-shot
         maxDepth: provider-managed
 
-    - id: workflow-worker-thread
-      name: '@deepseek-ai/dsh-workflow-worker-thread'
+    # DSH 0.1.6: dsh-workflow-worker-thread 已删除，替代品是 dsh-workflow-ptc。
+    # 与上游内置 ptc preset 对齐：引擎与 tool-ralph 一并默认关闭。
+    - id: workflow-ptc
+      name: '@deepseek-ai/dsh-workflow-ptc'
+      disabled: true
       config:
         provider: spawn
 
     - id: tool-workflow
       name: '@deepseek-ai/dsh-tool-workflow'
-      # Keep the engine above for `ralph`, but do not publish a second
-      # model-authored orchestration surface beside `run_code` in PTC mode.
+      # Do not publish a second model-authored orchestration surface beside
+      # `run_code` in PTC mode.
       disabled: true
 
     - id: tool-ralph
       name: '@deepseek-ai/dsh-tool-ralph'
+      disabled: true
       config:
         subagentProvider: spawn
         maxRounds: 64

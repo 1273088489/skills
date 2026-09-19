@@ -1,0 +1,48 @@
+diff --git a/packages/core/tools/src/index.ts b/packages/core/tools/src/index.ts
+index 6be7be6..e5bb2fb 100644
+--- a/packages/core/tools/src/index.ts
++++ b/packages/core/tools/src/index.ts
+@@ -458,9 +458,14 @@ export interface ToolRuntimeScheduler {
+ 
+ /**
+  * Scheduler entry point omitted from the generated named service API.
++ *
++ * Registered in the global symbol registry so consumers that evaluated a second
++ * copy of this module (profile-local duplicate installs, src/lib plane mixing
++ * during source launch, HMR re-evaluation) still agree on one key instead of
++ * failing every scheduler lookup with "reading 'prepare'".
+  * @internal
+  */
+-export const TOOL_RUNTIME_SCHEDULER: unique symbol = Symbol('@deepseek-ai/dsh-tools.scheduler')
++export const TOOL_RUNTIME_SCHEDULER: unique symbol = Symbol.for('@deepseek-ai/dsh-tools.scheduler')
+ 
+ /** Canonical error code for cancellation after a tool body was invoked. */
+ export const TOOL_ABORTED = 'ABORTED'
+diff --git a/packages/core/tools/tests/tools.spec.ts b/packages/core/tools/tests/tools.spec.ts
+index 6caf233..0133125 100644
+--- a/packages/core/tools/tests/tools.spec.ts
++++ b/packages/core/tools/tests/tools.spec.ts
+@@ -9,7 +9,7 @@ import AgentLoop from '@deepseek-ai/dsh-agent-loop'
+ import ApprovalService, { type ApprovalOutcome, type ApprovalRequest } from '@deepseek-ai/dsh-user-approval'
+ import ToolRuntime, {
+   defineContentToolFixture, defineTool, JsonSchemaError, parameterSchemaSpecToJsonSchema, validateArgs, ToolArgsError, ToolNotFoundError,
+-  TOOL_ABORTED, TOOL_ABORTED_BEFORE_DISPATCH,
++  TOOL_ABORTED, TOOL_ABORTED_BEFORE_DISPATCH, TOOL_RUNTIME_SCHEDULER,
+   type InferArgs, type ParameterSchemaSpec, type PreToolDecision, type PostToolDecision,
+   type JsonSchemaNode, type ToolDefinition, type ToolDispatchExecution, type ToolExecutionResult, type ToolExecutionToken,
+ } from '@deepseek-ai/dsh-tools'
+@@ -38,6 +38,14 @@ const echoTool = defineTool({
+ })
+ 
+ describe('ToolRuntime', () => {
++  it('registers the scheduler key in the global symbol registry', () => {
++    // A second evaluation of this module (profile-local duplicate install,
++    // src/lib plane mixing during source launch, HMR re-evaluation) must share
++    // one key with the first, or every scheduler lookup yields undefined and
++    // each tool call dies with "reading 'prepare'".
++    expect(Symbol.keyFor(TOOL_RUNTIME_SCHEDULER)).toBe('@deepseek-ai/dsh-tools.scheduler')
++  })
++
+   it('registers tools, exposes schemas, and feeds the system-prompt assembly', async () => {
+     const ctx = await setup()
+     ctx.tools.register(echoTool)

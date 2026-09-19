@@ -1,7 +1,14 @@
 ---
 name: skill-map
-description: 个人全量技能导航图——约 120 个技能按家族分组的路由表。当不确定该用哪个技能时使用：用户问"用哪个技能/该走什么流程/有没有能做 X 的技能"，任务方向不明需要定位入口，或想主动指定技能前先核对。先在此定位场景与入口，再加载具体技能。
+description: 个人全量技能导航图——约 165 个技能按家族分组的路由表。当不确定该用哪个技能时使用：用户问"用哪个技能/该走什么流程/有没有能做 X 的技能"，任务方向不明需要定位入口，或想主动指定技能前先核对。先在此定位场景与入口，再加载具体技能。
 ---
+
+> **库模式（ZCode 适配）**：为控制每次会话的上下文开销，除入口/路由技能外，其余全部技能已收进库目录 `/home/angel/.agents/skill-library/`（每个技能一个目录，含 SKILL.md，与原 DSH 同名）。
+>
+> - 本技能路由命中某个技能、或用户点名某个技能时，直接读取 `/home/angel/.agents/skill-library/<技能名>/SKILL.md` 并按其正文执行；无需该技能出现在技能注册表里。
+> - 库目录不参与自动发现，不会触发自动加载；这是特性不是缺陷。
+
+
 
 # Skill Map — 个人技能总导航
 
@@ -11,7 +18,7 @@ description: 个人全量技能导航图——约 120 个技能按家族分组�
 
 1. **有路由器的家族先问路由器**，不要直接猜下游技能。
 2. **描述即触发**：直接说出需求，匹配的技能通常会被自动加载；本图用于主动指定与兜底。
-3. 本图找不到合适技能 → `find-skills` 搜索可安装的新技能。
+3. 本图找不到合适技能 → `find-skills` 搜索可安装的新技能（⛔已停用，存于 `~/.agents/skills-disabled/`，移回 `~/.agents/skills/` 即恢复）。
 
 ## 第 0 步 · 规模判断（选技能之前）
 
@@ -22,22 +29,24 @@ description: 个人全量技能导航图——约 120 个技能按家族分组�
 - **团队自动拉起条件**（全部满足才自动组队，否则降级为后台 subagent 并行，点名才拉团）：① 可并行独立工作流 ≥3 且各自工作量可观；② 预计多轮次/长时段；③ 拉起前公告队伍构成与任务切分（说完即走，不等批准，随时可喊停）；④ 硬上限：成员 ≤4，发现方向性错误立即解散。异常兜底 `team-orchestration`。（用户已常设授权此规则）
 
 原则：**从简起步，证据触发升级**——中途发现混淆、反调试、跨域等信号就当场叠加对应技能，不做预判性重装上阵。技能数量不是质量指标，决策点被覆盖才是。
-4. `competition-*` 共 44 个为内部下游技能，仅由 `ctf-sandbox-orchestrator` 自动调度，**不要直接调用**。
+4. `competition-*` 共 41 个为内部下游技能，仅由 `ctf-sandbox-orchestrator` 自动调度，**不要直接调用**。
 
 ## 四个总入口
 
 | 场景 | 入口 |
 |---|---|
-| 工程开发全流程（想法 → 上线） | `ask-matt` |
-| 安全 · 逆向 · 渗透 · DFIR | `reverse-skill-router` |
+| 工程开发全流程（想法 → 上线） | `ask-matt` ⛔停用 |
+| 安全 · 逆向 · 渗透 · DFIR | `reverse-skill-router` ⛔停用 |
 | CTF 比赛 | `ctf-sandbox-orchestrator` |
-| Aegis 规范工作流检查 | `using-aegis` |
+| Aegis 规范工作流检查 | `using-aegis` ⛔停用 |
+
+> ⛔ 停用中的入口（ask-matt / reverse-skill-router / using-aegis / find-skills）存于 `~/.agents/skills-disabled/`，移回 `~/.agents/skills/` 即恢复；停用期间按本图各节表格直达库内技能。
 
 Aegis 家族另有：定目标边界 `goal-framing` · 升级方法包 `update-aegis`。
 
 ## 1. 安全 · 逆向 · 渗透
 
-入口 `reverse-skill-router`；单一明确目标可直达：
+入口 `reverse-skill-router`（⛔停用，直接按表直达）；单一明确目标可直达：
 
 | 目标 | 首选 |
 |---|---|
@@ -46,10 +55,10 @@ Aegis 家族另有：定目标边界 `goal-framing` · 升级方法包 `update-a
 | 逆向理解原理（未到利用） | `reverse-engineering`；写出稳定 exploit 走 `pwn-chain` |
 | 补丁差分 | N-day 武器化 `patch-diff-exploit` · 跨版本符号迁移 `binary-diff` |
 | 移动端 | APK CLI 逆向 `apk-reverse` · 授权测试+Frida `mobile-reverse` |
-| 前端/扩展 | JS 签名风控 `js-reverse` · 浏览器扩展 `browser-extension-reverse` · JS 自定义 VM/风控解释器 `dsl-vm-reverse` |
+| 前端/扩展 | JS 签名风控 `js-reverse` · 浏览器扩展 `browser-extension-reverse` · JS 自定义 VM/风控解释器 `reverse-engineering/dsl-vm-reverse/`（嵌套技能） |
 | 协议/固件/硬件 | 私有协议 PCAP `protocol-reverse` · 固件 IoT `firmware-pentest` · UART/JTAG `hardware-security` |
 | 对抗防御方 | EDR/AV 绕过研究 `edr-bypass-re` |
-| 渗透执行 | 工具链(Nmap/SQLMap/Burp) `pentest-tools` · SRC 众测实战 `src-hunter` · 多阶段编排 `attack-chain` |
+| 渗透执行 | 工具链(Nmap/SQLMap/Burp) `pentest-tools` · SRC 众测实战 `pentest-tools/src-hunter/`（嵌套技能） · 多阶段编排 `attack-chain` |
 | 渗透域专项 | API `api-security` · 云/K8s `cloud-k8s` · 数据库 `database-security` · 邮件 `email-security` · 身份联邦 `identity-federation` · AD `windows-ad` |
 | 新兴攻击面 | LLM 应用 `llm-security` · 工控 `ot-ics` · 供应链 `supply-chain-security` · 厚客户端 `thick-client` |
 | 无线 | Wi-Fi `wifi-wireless` · SDR `radio-sdr` |
@@ -62,7 +71,7 @@ Aegis 家族另有：定目标边界 `goal-framing` · 升级方法包 `update-a
 
 ## 3. 工程开发主流程（Matt Pocock 套件）
 
-地图即 `ask-matt`。主干：`grill-with-docs`（追问+留 ADR）→ 设计问题谈不清时 `handoff` 进 `prototype` 再带回 → 多会话 `to-spec`→`to-tickets`→逐票 `implement`（内含 tdd + code-review）；单会话直接 `implement`。
+地图即 `ask-matt`（⛔停用，本节即导航）。主干：`grill-with-docs`（追问+留 ADR）→ 设计问题谈不清时 `handoff` 进 `prototype` 再带回 → 多会话 `to-spec`→`to-tickets`→逐票 `implement`（内含 tdd + code-review）；单会话直接 `implement`。
 常用单点：`grilling` · `tdd` · `code-review` · `triage`（外来 issue 分流）· `wayfinder`（超大迷雾工程）· `improve-codebase-architecture`（空闲保养）
 首次使用先跑 `setup-matt-pocock-skills`。
 
@@ -84,12 +93,12 @@ Aegis 家族另有：定目标边界 `goal-framing` · 升级方法包 `update-a
 
 ## 8. 文档 · 笔记 · 学习 · 可视化
 
-调研落盘 `research` · 任务导向文档 `docs-generator` · Obsidian `obsidian-vault` · 视频→笔记 `video-inbox`（Windows）· 学概念 `teach` · 练习册 `scaffold-exercises` · 画图 `diagram-generator`（mermaid/graphviz/plantuml）
+调研落盘 `research` · 任务导向文档 `docs-generator` · Obsidian `obsidian-vault` · 视频→笔记 `video-inbox`（WSL 适配版）· 学概念 `teach` · 练习册 `scaffold-exercises` · 画图 `diagram-generator`（mermaid/graphviz/plantuml）
 写作三阶段 `writing-fragments`→`writing-shape`→`writing-beats` · 改稿 `edit-article`
 
 ## 9. 浏览器 · 自动化 · 视觉
 
-用户真实浏览器（带登录态）`kimi-webbridge` · Playwright/桌面 GUI 自动化 `browser-automation` · 交互式配置向导 `wizard` · 原生读图不可用时的兜底 OCR/版面解析 `deepseek-vision`
+用户真实浏览器（带登录态）`kimi-webbridge` · Playwright/桌面 GUI 自动化 `browser-automation` · 交互式配置向导 `wizard` · 纯文本模型看图 `deepseek-vision`
 
 ## 10. 沟通风格 · 追问
 
@@ -97,7 +106,7 @@ Aegis 家族另有：定目标边界 `goal-framing` · 升级方法包 `update-a
 
 ## 11. 元技能 · 环境
 
-写/改技能 `writing-skills`+`writing-great-skills` · 找新技能 `find-skills` · Orca 操作 `orca-cli`
+写/改技能 `writing-skills`+`writing-great-skills` · 找新技能 `find-skills`（⛔停用） · Orca 操作 `orca-cli` · 调度 freebuff `freebuff`
 
 ## 易混淆对照
 
@@ -112,5 +121,5 @@ Aegis 家族另有：定目标边界 `goal-framing` · 升级方法包 `update-a
 
 ## 脚注
 
-来源四层：`~/.dsh/skills`（自装 47 个）、`@dhicoc/dsh-reverse-skill` 插件（安全/CTF 全家）、Aegis 包（22 个流程技能）、`~/.agents/skills`（find-skills/orca-cli）。
+来源四层：`~/.dsh/skills`（自装 50 个）、`@dhicoc/dsh-reverse-skill` 插件（安全/CTF 全家）、Aegis 包（22 个流程技能）、`~/.agents/skills`（find-skills/orca-cli）。
 项目专属技能只在对应仓库内生效：deepseek-harness 的 `dsh-*` 系列、new-api 的 `i18n-translate`/`shadcn-ui` 等，全局任务勿找它们。

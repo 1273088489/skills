@@ -1,0 +1,80 @@
+From e26239c938e5349ced66130a45ac6c0bf0292394 Mon Sep 17 00:00:00 2001
+From: CreatixChu <142372241+CreatixChu@users.noreply.github.com>
+Date: Sat, 19 Sep 2026 04:40:31 +0800
+Subject: [PATCH] =?UTF-8?q?feat(llm-pi-ai):=20=E6=89=8B=E5=B7=A5=E5=A3=B0?=
+ =?UTF-8?q?=E6=98=8E=E6=A8=A1=E5=9E=8B=E9=BB=98=E8=AE=A4=E6=8F=90=E4=BE=9B?=
+ =?UTF-8?q?=E5=9B=BA=E5=AE=9A=E6=80=9D=E8=80=83=E6=A1=A3=E4=BD=8D=20low/me?=
+ =?UTF-8?q?dium/high/xhigh/max?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+---
+ packages/llm/llm-pi-ai/src/catalog.ts        | 23 +++++++++++++++-----
+ packages/llm/llm-pi-ai/tests/catalog.spec.ts | 13 +++++------
+ 2 files changed, 23 insertions(+), 13 deletions(-)
+
+diff --git a/packages/llm/llm-pi-ai/src/catalog.ts b/packages/llm/llm-pi-ai/src/catalog.ts
+index d626c1a..3e1793e 100644
+--- a/packages/llm/llm-pi-ai/src/catalog.ts
++++ b/packages/llm/llm-pi-ai/src/catalog.ts
+@@ -694,12 +694,23 @@ function resolveModelReasoning(
+ ): ModelReasoning {
+   const efforts = entry.reasoningEfforts
+   if (efforts === undefined) {
+-    // Reasoning rides the installed entry or is absent: a bare capability flag
+-    // would make pi-ai advertise effort levels with no `thinkingLevelMap` to
+-    // spell them, and no listing endpoint reports a model's reasoning
+-    // protocol. The entry's map (when any) arrives through the `...base`
+-    // spread in the model literal.
+-    return { reasoning: base?.reasoning ?? false }
++    // A hand-declared model (no installed catalog entry) gets the fixed
++    // thinking ladder low/medium/high/xhigh/max, each level sending its own
++    // name; a declared `reasoningEfforts` still wins.
++    if (!base) {
++      // `off` stays absent — pi-ai reads that as "supported, send nothing",
++      // the correct dispatch where not thinking is the parameter's absence.
++      const map: ThinkingLevelMap = { minimal: null }
++      for (const level of ['low', 'medium', 'high', 'xhigh', 'max'] as const) {
++        map[level] = level
++      }
++      return { reasoning: true, thinkingLevelMap: map }
++    }
++    // Reasoning rides the installed entry: a bare capability flag would make
++    // pi-ai advertise effort levels with no `thinkingLevelMap` to spell them,
++    // and no listing endpoint reports a model's reasoning protocol. The
++    // entry's map (when any) arrives through the `...base` spread above.
++    return { reasoning: base.reasoning }
+   }
+   // The installed entry's map may ride along through `...base`; pi-ai never
+   // reads it on a non-reasoning model, so stripping it is not worth a field
+diff --git a/packages/llm/llm-pi-ai/tests/catalog.spec.ts b/packages/llm/llm-pi-ai/tests/catalog.spec.ts
+index db40b17..b41df97 100644
+--- a/packages/llm/llm-pi-ai/tests/catalog.spec.ts
++++ b/packages/llm/llm-pi-ai/tests/catalog.spec.ts
+@@ -113,16 +113,15 @@ describe('hand-declared providers', () => {
+     })
+   })
+ 
+-  it('offers no reasoning control it could not honour', async () => {
++  it('offers hand-declared models the fixed thinking ladder', async () => {
+     const server = await mockServer([])
+     const ctx = await harness(gateway(`${server.url}/v1`))
+ 
+-    // pi-ai reports a model with no reasoning metadata as supporting the single
+-    // level `off`, but `off` is translated to *omitting* the reasoning option —
+-    // byte-for-byte the same request as naming no effort — so a provider whose
+-    // own default is to think would keep thinking with `off` selected. The
+-    // capability is reported unavailable instead of offering that control.
+-    expect((await ctx.llm.resolveModelInfo('acme-gateway', 'acme-large')).reasoning).toBeUndefined()
++    // A hand-declared model carries no catalog reasoning metadata, so it gets
++    // the fixed ladder low/medium/high/xhigh/max — each level sending its own
++    // name — with `off` meaning "send nothing" and `minimal` pinned unsupported.
++    const efforts = (await ctx.llm.resolveModelInfo('acme-gateway', 'acme-large')).reasoning?.efforts.map(e => e.id)
++    expect(efforts).toEqual(['off', 'low', 'medium', 'high', 'xhigh', 'max'])
+ 
+     // A catalog route is unaffected: its models carry the metadata that makes
+     // `off` actually disable thinking.
+-- 
+2.43.0
+
