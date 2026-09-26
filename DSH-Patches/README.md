@@ -119,6 +119,8 @@ cd ~/.dsh/profiles/web && pnpm install
 
 ## 变更日志
 
+- **2026-09-26 · settings 漂移修复**：按用户选择，仅刷新 `dot-dsh/settings.yaml.masked`（280 → 398 行，与实时 `~/.dsh/settings.yaml` 逐字节一致，仅 14 处敏感值脱敏：13 个 `apiKeyEnv` 名称 + `describe-image.apiKey` 明文 key）。本次同步补入：12 个自建 provider（含 `minimaxaaaa`/openrouter、`d12`/kimi-k3）、`agent-default-model`、`subagent.maxActiveSubagents`、`subagent-model-selection` 扩至 20 条、`dsh-web-ui-market.enabled: false`、`mnemon.memoryTopology.layers.runtime.enabled: false`、`mnemon-view-8887a1728307a1ff` 策略、`remote-web-ui` 配置块。
+  已知剩余漂移（本次未处理，待用户确认）：`dot-dsh/cordis.patch.yml` 仍为 2026-09-20 版，缺 `web-ui-describe-image: disabled: false` 与末尾 `webserver` lan-bind 托管块（`0.0.0.0:3081`）。
 - **2026-09-20**：清理过时补丁（0001–0004 与 liangshen patch 删除，理由见上）；新增 `commits/0005` 与 `worktree/0001-0002`；归档 mnemon 本地修复 tgz 到 `dot-dsh/vendor/`；刷新 preset（0.1.6 `workflow-ptc`）、package.json、cordis.patch.yml、settings.yaml.masked；同步较新的 `skill-map` / `video-inbox` 回 Skills/；基线由 0.1.5-rc.1 更新为 0.1.6-alpha.2
 - **2026-09-17**：全量盘点（无新 commit / 无工作区改动）；复验 0004 在 `dsh-v0.1.5-rc.1` 可 `git am` 且 tree 一致；刷新 `settings.yaml.masked`；补齐 `dot-dsh/skills-dsh-patch-archive/`
 - **2026-09-11**：关闭 dsh-mnemon 空闲复审（`writebackMode: off`）；`cordis.patch.yml` 重新归档
